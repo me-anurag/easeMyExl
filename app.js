@@ -93,28 +93,24 @@ async function parseExcel(file, append = false) {
       showSnackbar('Error: No sheets found.');
       return false;
     }
-    const fileHeaders = worksheet.getRow(1).values
-      .slice(1)
-      .map(h => String(h || '').trim().replace(/[^a-zA-Z0-9\s]/g, ''))
-      .filter(h => h);
-    const headerSet = new Set(fileHeaders);
-    if (headerSet.size !== fileHeaders.length) {
-      showSnackbar('Error: Duplicate headers detected.');
-      return false;
+    // Detect headers from the first row with data
+    const firstRow = worksheet.getRow(1).values.slice(1).map(h => String(h || '').trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter(h => h);
+    if (firstRow.length === 0) {
+      showSnackbar('Error: No valid headers found. Using row indices as headers.');
+      headers = worksheet.getRow(1).values.slice(1).map((_, i) => `Column_${i + 1}`);
+    } else {
+      headers = firstRow;
     }
-    if (!fileHeaders.length) {
-      showSnackbar('Error: No valid headers found.');
-      return false;
+    const headerSet = new Set(headers);
+    if (headerSet.size !== headers.length) {
+      showSnackbar('Warning: Duplicate headers detected, using unique indices.');
+      headers = headers.map((h, i) => `${h}_${i + 1}`).filter(h => h);
     }
     if (!append) {
-      headers = fileHeaders;
       rows = [];
-    } else if (JSON.stringify(fileHeaders) !== JSON.stringify(headers)) {
-      showSnackbar('Error: Headers do not match current session.');
-      return false;
     }
     worksheet.eachRow((row, rowNum) => {
-      if (rowNum > 1) {
+      if (rowNum > 1) { // Start from second row for data
         const rowData = {};
         headers.forEach((h, i) => {
           rowData[h] = String(row.values[i + 1] || '');
@@ -146,17 +142,17 @@ function generateForm(container = dataForm) {
     `;
     container.appendChild(div);
   });
-  // Ensure add row button is topmost
-  const buttons = [addRowBtn, presetsBtn, searchBtn, bulkEditBtn, settingsBtn];
+  // Ensure buttons are in correct order and visible
+  const buttons = [addRowBtn, viewRowsBtn, settingsBtn, bulkEditBtn, searchBtn, presetsBtn];
   buttons.forEach(btn => {
-    if (btn.style.display !== 'none') {
-      container.parentElement.insertBefore(btn, container.nextSibling);
-    }
+    btn.style.display = 'block';
+    container.parentElement.appendChild(btn);
   });
 }
 
-// Render Rows with Row Number and Actions
-function renderRows(container = rowTable, data = rows, editable = true) {
+// Render Rows with Row Number, Column Numbers, and Editable Headers
+function renderRows(container, data = rows, editable = true) {
+  if (!container) return;
   container.innerHTML = '';
   if (data.length === 0) {
     container.innerHTML = '<p>No rows added yet.</p>';
@@ -168,7 +164,7 @@ function renderRows(container = rowTable, data = rows, editable = true) {
   thead.innerHTML = `
     <tr>
       <th>Row #</th>
-      ${headers.map(h => `<th>${h}</th>`).join('')}
+      ${headers.map((h, i) => `<th><input type="text" value="${h}" data-index="${i}" class="header-edit" aria-label="Edit header ${h}"></th>`).join('')}
     </tr>
   `;
   data.forEach((row, index) => {
@@ -185,12 +181,36 @@ function renderRows(container = rowTable, data = rows, editable = true) {
           const header = input.dataset.header;
           lastAction = { type: 'update', oldRow: { ...rows[rowIndex] }, row: { ...rows[rowIndex], [header]: newValue }, index: rowIndex };
           rows[rowIndex][header] = newValue;
+          sessionStorage.setItem('rows', JSON.stringify(rows));
           saveSession();
+          renderRows(container); // Real-time update
           showSnackbar('Cell updated!', 'undoAction()');
         };
       });
     }
     tbody.appendChild(tr);
+  });
+  // Make headers editable
+  thead.querySelectorAll('.header-edit').forEach(input => {
+    input.onchange = () => {
+      const newHeader = input.value.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+      const index = parseInt(input.dataset.index);
+      if (newHeader && !headers.includes(newHeader)) {
+        headers[index] = newHeader;
+        rows.forEach(row => {
+          row[newHeader] = row[headers[index]]; // Transfer data to new header
+          delete row[headers[index]]; // Remove old header data
+        });
+        sessionStorage.setItem('headers', JSON.stringify(headers));
+        sessionStorage.setItem('rows', JSON.stringify(rows));
+        generateForm(); // Update form with new headers
+        saveSession();
+        renderRows(container); // Re-render with updated headers
+        showSnackbar('Header updated!', 'undoAction()');
+      } else if (headers.includes(newHeader)) {
+        showSnackbar('Duplicate header name not allowed.');
+      }
+    };
   });
   table.appendChild(thead);
   table.appendChild(tbody);
@@ -253,12 +273,7 @@ function resetState() {
   sessionStorage.clear();
 }
 
-// Edit Row (No longer needed, inline editing replaces this)
-function editRow(index) {
-  // Removed, inline editing handles this now
-}
-
-// Download File with Options (Exclude Row #)
+// Download File
 async function downloadFile(rows, headers, fileName, format = 'xlsx') {
   try {
     if (!rows.length) {
@@ -342,9 +357,15 @@ function undoAction() {
     });
   } else if (lastAction.type === 'addAfter') {
     rows.splice(lastAction.index + 1, 1);
+  } else if (lastAction.type === 'addColumn') {
+    headers.splice(lastAction.index + 1, 1);
+    rows.forEach(row => delete row[lastAction.newHeader]);
+  } else if (lastAction.type === 'border') {
+    // No undo for borders yet, could store previous state if needed
   }
   sessionStorage.setItem('rows', JSON.stringify(rows));
-  renderRows();
+  sessionStorage.setItem('headers', JSON.stringify(headers));
+  renderRows(rowTable);
   saveSession();
   showSnackbar('Action undone!');
   lastAction = null;
@@ -373,9 +394,15 @@ async function syncOfflineQueue() {
         rows.splice(action.index, 1);
       } else if (action.type === 'addAfter') {
         rows.splice(action.index + 1, 0, action.row);
+      } else if (action.type === 'addColumn') {
+        headers.splice(action.index + 1, 0, action.newHeader);
+        rows.forEach(row => row[action.newHeader] = '');
+      } else if (action.type === 'border') {
+        // Handle border update if implemented
       }
     });
     sessionStorage.setItem('rows', JSON.stringify(rows));
+    sessionStorage.setItem('headers', JSON.stringify(headers));
     saveSession();
     store.clear();
     offlineQueue = [];
@@ -397,10 +424,10 @@ function hideAllPanels() {
   dataForm.style.display = 'block';
   addRowBtn.style.display = 'block';
   viewRowsBtn.style.display = 'block';
-  presetsBtn.style.display = 'block';
-  searchBtn.style.display = 'block';
-  bulkEditBtn.style.display = 'block';
   settingsBtn.style.display = 'block';
+  bulkEditBtn.style.display = 'block';
+  searchBtn.style.display = 'block';
+  presetsBtn.style.display = 'block';
 }
 
 function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen) {
@@ -418,6 +445,13 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             <option value="">Actions</option>
             <option value="delete">Delete Row</option>
             <option value="addAfter">Add Row After</option>
+            <option value="addColumn">Add Column</option>
+            <option value="border">Add Border</option>
+          </select>
+          <select class="btn btn-primary border-sub-options" aria-label="Border options" style="display: none;">
+            <option value="all">All Borders</option>
+            <option value="none">No Borders</option>
+            <option value="outer">Outer Only</option>
           </select>
         </div>
       </div>
@@ -430,15 +464,23 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
         dataForm.style.display = 'block';
         addRowBtn.style.display = 'block';
         viewRowsBtn.style.display = 'block';
-        presetsBtn.style.display = 'block';
-        searchBtn.style.display = 'block';
-        bulkEditBtn.style.display = 'block';
         settingsBtn.style.display = 'block';
+        bulkEditBtn.style.display = 'block';
+        searchBtn.style.display = 'block';
+        presetsBtn.style.display = 'block';
       }
     };
-    panel.querySelector('.action-dropdown').onchange = (e) => {
+    const dropdown = panel.querySelector('.action-dropdown');
+    const borderSubOptions = panel.querySelector('.border-sub-options');
+    dropdown.onchange = (e) => {
       const action = e.target.value;
       e.target.value = '';
+      if (action === 'border') {
+        borderSubOptions.style.display = 'block';
+        borderSubOptions.focus();
+      } else {
+        borderSubOptions.style.display = 'none';
+      }
       if (action === 'delete') {
         const rowNum = prompt('Enter row number to delete (1 to ' + rows.length + '):');
         if (rowNum && !isNaN(rowNum) && rowNum >= 1 && rowNum <= rows.length) {
@@ -446,8 +488,8 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             lastAction = { type: 'delete', row: rows[rowNum - 1], index: rowNum - 1 };
             rows.splice(rowNum - 1, 1);
             sessionStorage.setItem('rows', JSON.stringify(rows));
-            renderRows();
             saveSession();
+            renderRows(panel.querySelector('.panel-content')); // Real-time update
             showSnackbar('Row deleted!', 'undoAction()');
           }
         } else {
@@ -461,13 +503,42 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
           lastAction = { type: 'addAfter', row: newRow, index: rowNum };
           rows.splice(rowNum, 0, newRow);
           sessionStorage.setItem('rows', JSON.stringify(rows));
-          renderRows();
           saveSession();
+          renderRows(panel.querySelector('.panel-content')); // Real-time update
           showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
         } else {
           showSnackbar('Invalid row number.');
         }
+      } else if (action === 'addColumn') {
+        const colNum = prompt('Enter column number to add after (1 to ' + headers.length + '):');
+        const colName = prompt('Enter column name:');
+        if (colNum && !isNaN(colNum) && colNum >= 0 && colNum <= headers.length && colName && colName.trim()) {
+          const newHeader = colName.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+          if (headers.includes(newHeader)) {
+            showSnackbar('Column name already exists.');
+            return;
+          }
+          lastAction = { type: 'addColumn', index: colNum, newHeader };
+          headers.splice(colNum, 0, newHeader);
+          rows.forEach(row => row[newHeader] = '');
+          sessionStorage.setItem('headers', JSON.stringify(headers));
+          sessionStorage.setItem('rows', JSON.stringify(rows));
+          saveSession();
+          generateForm();
+          renderRows(panel.querySelector('.panel-content')); // Real-time update
+          showSnackbar('Column added!', 'undoAction()');
+        } else {
+          showSnackbar('Invalid column number or name.');
+        }
       }
+    };
+    borderSubOptions.onchange = (e) => {
+      const borderType = e.target.value;
+      e.target.value = '';
+      borderSubOptions.style.display = 'none';
+      applyBorder(borderType, panel.querySelector('.panel-content'));
+      lastAction = { type: 'border', borderType };
+      showSnackbar(`Borders set to ${borderType}!`, 'undoAction()');
     };
     let startY = 0;
     panel.addEventListener('touchstart', e => {
@@ -481,10 +552,10 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
           dataForm.style.display = 'block';
           addRowBtn.style.display = 'block';
           viewRowsBtn.style.display = 'block';
-          presetsBtn.style.display = 'block';
-          searchBtn.style.display = 'block';
-          bulkEditBtn.style.display = 'block';
           settingsBtn.style.display = 'block';
+          bulkEditBtn.style.display = 'block';
+          searchBtn.style.display = 'block';
+          presetsBtn.style.display = 'block';
         }
       }
     });
@@ -493,6 +564,27 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
   content.innerHTML = '';
   contentGenerator(content);
   panel.classList.add('show');
+  renderRows(content); // Initial render
+}
+
+// Apply Borders (Fixed for All Borders)
+function applyBorder(borderType, container) {
+  const table = container.querySelector('table');
+  if (!table) return;
+  const cells = table.querySelectorAll('th, td');
+  cells.forEach(cell => {
+    if (borderType === 'all') {
+      cell.style.border = '1px solid var(--border)';
+    } else if (borderType === 'none') {
+      cell.style.border = 'none';
+    } else if (borderType === 'outer') {
+      cell.style.border = 'none';
+      if (cell.parentElement.rowIndex === 0 || cell.cellIndex === 0 || cell.parentElement.rowIndex === table.rows.length - 1 || cell.cellIndex === table.rows[0].cells.length - 1) {
+        cell.style.border = '1px solid var(--border)';
+      }
+    }
+  });
+  renderRows(container); // Re-render to reflect changes
 }
 
 // Create Template
@@ -599,7 +691,7 @@ function createTemplatePanel() {
   }, homeScreen);
 }
 
-// Your Works Panel with Confirmation
+// Your Works Panel
 function showYourWorksPanel() {
   createSlidePanel('your-works-panel', 'Your Works 📂', content => {
     if (sessions.length === 0) {
@@ -722,7 +814,7 @@ addRowBtn.addEventListener('click', () => {
       showSnackbar('Row added!', 'undoAction()');
     }
     sessionStorage.setItem('rows', JSON.stringify(rows));
-    renderRows();
+    saveSession();
     dataForm.reset();
     if (navigator.onLine) {
       saveSession();
@@ -759,7 +851,7 @@ function resumeSession(index) {
   sessionStorage.setItem('currentFileName', currentFileName);
   updateProgress();
   generateForm();
-  renderRows();
+  renderRows(rowTable);
   homeScreen.style.display = 'none';
   dataEntryScreen.style.display = 'block';
   sessionStorage.setItem('currentPage', 'data-entry');
@@ -918,7 +1010,7 @@ bulkEditBtn.addEventListener('click', () => {
         Object.assign(rows[i], changes);
       });
       sessionStorage.setItem('rows', JSON.stringify(rows));
-      renderRows();
+      renderRows(tableDiv);
       saveSession();
       hideAllPanels();
       showSnackbar('Rows updated!', 'undoAction()');
@@ -987,7 +1079,7 @@ settingsBtn.addEventListener('click', () => {
       if (importInput.files.length) {
         const success = await parseExcel(importInput.files[0], true);
         if (success) {
-          renderRows();
+          renderRows(rowTable);
           saveSession();
           showSnackbar('Rows imported!');
           importInput.value = '';
@@ -1015,46 +1107,13 @@ function notFutureRule(value) {
   return new Date(value) <= new Date();
 }
 
-// Add Row Button Scroll Behavior
-let originalAddRowPosition = null;
-function handleAddRowScroll() {
-  const container = document.querySelector('.container');
-  const addRowRect = addRowBtn.getBoundingClientRect();
-  const formFields = dataForm.querySelectorAll('input');
-  const lastField = formFields[formFields.length - 1];
-  const lastFieldRect = lastField ? lastField.getBoundingClientRect() : { bottom: 0 };
-
-  if (!originalAddRowPosition) {
-    originalAddRowPosition = addRowRect.top - container.getBoundingClientRect().top + container.scrollTop;
-  }
-
-  const scrollTop = container.scrollTop;
-  const threshold = lastFieldRect.bottom - container.getBoundingClientRect().top;
-
-  if (scrollTop < threshold && addRowRect.bottom <= window.innerHeight) {
-    addRowBtn.style.position = 'static';
-    addRowBtn.style.top = 'auto';
-    addRowBtn.style.bottom = 'auto';
-    addRowBtn.style.width = '100%';
-  } else {
-    addRowBtn.style.position = 'fixed';
-    addRowBtn.style.top = `${lastFieldRect.bottom}px`;
-    addRowBtn.style.bottom = 'auto';
-    addRowBtn.style.width = '100%';
-    addRowBtn.style.zIndex = '15';
-  }
-}
-
-container.addEventListener('scroll', handleAddRowScroll);
-window.addEventListener('resize', handleAddRowScroll);
-
 // Initialize
 updateProgress();
 if (currentPage === 'data-entry' && headers.length > 0) {
   dataEntryScreen.style.display = 'block';
   homeScreen.style.display = 'none';
   generateForm();
-  renderRows();
+  renderRows(rowTable);
 } else {
   homeScreen.style.display = 'block';
   dataEntryScreen.style.display = 'none';

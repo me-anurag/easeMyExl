@@ -25,19 +25,15 @@
       <input type="file" id="fileInput" accept=".xlsx" style="display: none;" aria-label="Upload Excel file" />
       <form id="data-form" aria-label="Data entry form"></form>
       <div id="row-table" style="display: none;"></div>
+      <button id="add-row" class="btn btn-primary btn-full add-row-sticky" aria-label="Add or update row">Add Row ➕</button>
       <button id="view-rows-btn" class="btn btn-primary btn-full" aria-label="View all rows">View Rows 👀</button>
-      <button id="presets-btn" class="btn btn-primary btn-full" aria-label="Manage row presets">Presets ⭐</button>
-      <button id="search-btn" class="btn btn-primary btn-full" aria-label="Search rows">Search 🔍</button>
-      <button id="bulk-edit-btn" class="btn btn-primary btn-full" aria-label="Bulk edit rows">Bulk Edit ✏️</button>
       <button id="settings-btn" class="btn btn-primary btn-full" aria-label="Configure settings">Settings ⚙️</button>
+      <button id="bulk-edit-btn" class="btn btn-primary btn-full" aria-label="Bulk edit rows">Bulk Edit ✏️</button>
+      <button id="search-btn" class="btn btn-primary btn-full" aria-label="Search rows">Search 🔍</button>
+      <button id="presets-btn" class="btn btn-primary btn-full" aria-label="Manage row presets">Presets ⭐</button>
       <div id="snackbar"></div>
       <input type="hidden" id="download-options" style="display: none;" />
     </div>
-    <button id="add-row" class="btn btn-primary btn-full add-row-fixed" aria-label="Add or update row">Add Row ➕</button>
-    <button id="presets-btn" class="btn btn-primary btn-full" aria-label="Manage row presets" style="display: none;"></button>
-    <button id="search-btn" class="btn btn-primary btn-full" aria-label="Search rows" style="display: none;"></button>
-    <button id="bulk-edit-btn" class="btn btn-primary btn-full" aria-label="Bulk edit rows" style="display: none;"></button>
-    <button id="settings-btn" class="btn btn-primary btn-full" aria-label="Configure settings" style="display: none;"></button>
   </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

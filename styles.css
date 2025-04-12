@@ -140,7 +140,7 @@ h2 {
   white-space: nowrap;
   padding: 0 10px;
   color: var(--text);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 #save-status {
   font-size: 1rem;
@@ -186,6 +186,11 @@ th {
   left: 0;
   z-index: 5;
 }
+th small {
+  display: block;
+  font-size: 0.7rem;
+  color: #ccc;
+}
 td input {
   width: 100%;
   padding: 6px;
@@ -229,25 +234,12 @@ tr:active {
   min-width: 0;
   margin: 0;
 }
-.btn-delete {
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  min-height: 40px;
-  width: 80px;
-  margin: 0;
-}
-.add-row-fixed {
-  position: static;
-  width: 100%;
-  margin: 0;
-}
-.add-row-fixed.fixed {
+.add-row-sticky {
   position: fixed;
-  top: auto;
   bottom: 0;
-  z-index: 15;
   width: 100%;
-  max-height: 56px;
+  margin: 12px 0;
+  z-index: 15;
 }
 #snackbar {
   visibility: hidden;
@@ -304,10 +296,48 @@ tr:active {
 }
 .panel-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   padding: 12px;
   border-bottom: 1px solid var(--border);
+}
+.panel-header h2 {
+  width: 100%;
+  text-align: center;
+  margin: 0;
+  padding: 8px 0;
+  background: var(--btn-bg);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+.panel-actions {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 8px;
+}
+.panel-actions .close-panel-btn {
+  width: 49%;
+  margin-right: 2%;
+}
+.panel-actions .action-dropdown {
+  width: 49%;
+  padding: 12px;
+  appearance: none;
+  background: var(--btn-bg);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.panel-actions .border-sub-options {
+  width: 49%;
+  padding: 12px;
+  appearance: none;
+  background: var(--btn-bg);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
 }
 .panel-content {
   flex: 1;
@@ -428,5 +458,15 @@ tr:active {
   }
   .add-header {
     min-height: 40px;
+  }
+  .panel-actions .close-panel-btn {
+    width: 48%;
+    margin-right: 4%;
+  }
+  .panel-actions .action-dropdown {
+    width: 48%;
+  }
+  .panel-actions .border-sub-options {
+    width: 48%;
   }
 }
