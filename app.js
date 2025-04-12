@@ -1,11 +1,12 @@
 // Use global ExcelJS from CDN
 const ExcelJS = window.ExcelJS;
+const jsPDF = window.jspdf.jsPDF; // Added for PDF support
 
 // State
-let headers = [];
-let rows = [];
+let headers = JSON.parse(sessionStorage.getItem('headers')) || [];
+let rows = JSON.parse(sessionStorage.getItem('rows')) || [];
 let sessions = [];
-let currentFileName = '';
+let currentFileName = sessionStorage.getItem('currentFileName') || '';
 let editingIndex = null;
 let lastAction = null;
 let presets = JSON.parse(localStorage.getItem('presets')) || [];
@@ -13,6 +14,7 @@ let validationRules = JSON.parse(localStorage.getItem('validationRules')) || {};
 let offlineQueue = [];
 let theme = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 let isSaving = false;
+let currentPage = sessionStorage.getItem('currentPage') || 'home';
 
 // DOM Elements
 const homeScreen = document.getElementById('home-screen');
@@ -83,7 +85,6 @@ async function parseExcel(file, append = false) {
     return false;
   }
   try {
-    console.log('Parsing file:', file.name);
     const workbook = new ExcelJS.Workbook();
     const arrayBuffer = await file.arrayBuffer();
     await workbook.xlsx.load(arrayBuffer);
@@ -121,7 +122,8 @@ async function parseExcel(file, append = false) {
         rows.push(rowData);
       }
     });
-    console.log('Parsed headers:', headers, 'Rows:', rows.length);
+    sessionStorage.setItem('headers', JSON.stringify(headers));
+    sessionStorage.setItem('rows', JSON.stringify(rows));
     return true;
   } catch (error) {
     showSnackbar('Error: Failed to parse file.');
@@ -144,44 +146,54 @@ function generateForm(container = dataForm) {
     `;
     container.appendChild(div);
   });
+  // Ensure add row button is topmost
+  const buttons = [addRowBtn, presetsBtn, searchBtn, bulkEditBtn, settingsBtn];
+  buttons.forEach(btn => {
+    if (btn.style.display !== 'none') {
+      container.parentElement.insertBefore(btn, container.nextSibling);
+    }
+  });
 }
 
-// Render Rows
-function renderRows(container = rowTable, data = rows, clickable = true) {
+// Render Rows with Row Number and Actions
+function renderRows(container = rowTable, data = rows, editable = true) {
   container.innerHTML = '';
   if (data.length === 0) {
     container.innerHTML = '<p>No rows added yet.</p>';
     return;
   }
   const table = document.createElement('table');
-  table.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  const thead = document.createElement('thead');
+  const tbody = document.createElement('tbody');
+  thead.innerHTML = `
+    <tr>
+      <th>Row #</th>
+      ${headers.map(h => `<th>${h}</th>`).join('')}
+    </tr>
+  `;
   data.forEach((row, index) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = headers.map(h => `<td>${row[h] || '-'}</td>`).join('');
-    if (clickable) {
-      tr.onclick = () => {
-        hideAllPanels();
-        editRow(index);
-      };
-      let startX = 0;
-      tr.addEventListener('touchstart', e => {
-        startX = e.touches[0].clientX;
-      });
-      tr.addEventListener('touchend', e => {
-        const endX = e.changedTouches[0].clientX;
-        if (startX - endX > 100) {
-          if (confirm('Delete row?')) {
-            lastAction = { type: 'delete', row, index };
-            rows.splice(index, 1);
-            renderRows();
-            saveSession();
-            showSnackbar('Row deleted!', 'undoAction()');
-          }
-        }
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      ${headers.map(h => `<td><input type="text" value="${row[h] || ''}" data-index="${index}" data-header="${h}" ${editable ? '' : 'readonly'}></td>`).join('')}
+    `;
+    if (editable) {
+      tr.querySelectorAll('input').forEach(input => {
+        input.onchange = () => {
+          const newValue = input.value;
+          const rowIndex = parseInt(input.dataset.index);
+          const header = input.dataset.header;
+          lastAction = { type: 'update', oldRow: { ...rows[rowIndex] }, row: { ...rows[rowIndex], [header]: newValue }, index: rowIndex };
+          rows[rowIndex][header] = newValue;
+          saveSession();
+          showSnackbar('Cell updated!', 'undoAction()');
+        };
       });
     }
-    table.appendChild(tr);
+    tbody.appendChild(tr);
   });
+  table.appendChild(thead);
+  table.appendChild(tbody);
   container.appendChild(table);
 }
 
@@ -202,6 +214,9 @@ function saveSession() {
     const store = transaction.objectStore('sessions');
     store.put(session).onsuccess = () => {
       sessions = sessions.filter(s => s.fileName !== currentFileName).concat(session);
+      sessionStorage.setItem('headers', JSON.stringify(headers));
+      sessionStorage.setItem('rows', JSON.stringify(rows));
+      sessionStorage.setItem('currentFileName', currentFileName);
       saveStatus.textContent = 'Saved';
       console.log('Session saved:', currentFileName);
       setTimeout(() => {
@@ -235,33 +250,34 @@ function resetState() {
   addRowBtn.classList.remove('btn-update');
   addRowBtn.classList.add('btn-primary');
   updateProgress();
+  sessionStorage.clear();
 }
 
-// Edit Row
+// Edit Row (No longer needed, inline editing replaces this)
 function editRow(index) {
-  const row = rows[index];
-  headers.forEach(header => {
-    const input = dataForm.querySelector(`[name="${header}"]`);
-    input.value = row[header] || '';
-  });
-  editingIndex = index;
-  addRowBtn.textContent = 'Update Row ➕';
-  addRowBtn.classList.remove('btn-primary');
-  addRowBtn.classList.add('btn-update');
-  showSnackbar('Edit row loaded. Submit to save.');
+  // Removed, inline editing handles this now
 }
 
-// Download File
+// Download File with Options (Exclude Row #)
 async function downloadFile(rows, headers, fileName, format = 'xlsx') {
   try {
-    console.log('Starting download:', { headers, rows, fileName, format });
+    if (!rows.length) {
+      showSnackbar('No data to download.');
+      return false;
+    }
+    const cleanRows = rows.map(row => {
+      const cleanRow = {};
+      headers.forEach(h => {
+        cleanRow[h] = String(row[h] || '');
+      });
+      return cleanRow;
+    });
     if (format === 'xlsx') {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Sheet1');
       worksheet.columns = headers.map(h => ({ header: h, key: h }));
-      rows.forEach(row => worksheet.addRow(row));
+      cleanRows.forEach(row => worksheet.addRow(row));
       const buffer = await workbook.xlsx.writeBuffer();
-      console.log('Buffer generated, size:', buffer.length);
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -271,21 +287,42 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } else {
-      const csv = [headers.join(','), ...rows.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))].join('\n');
+    } else if (format === 'csv') {
+      const csv = [headers.join(','), ...cleanRows.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName.replace('.xlsx', '.csv');
+      a.download = fileName.replace(/\.[^/.]+$/, '') + '.csv';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+    } else if (format === 'txt') {
+      const txt = cleanRows.map(row => headers.map(h => row[h] || '').join('\t')).join('\n');
+      const blob = new Blob([txt], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.replace(/\.[^/.]+$/, '') + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } else if (format === 'pdf') {
+      const doc = new jsPDF();
+      doc.text('Data Export', 10, 10);
+      doc.autoTable({
+        head: [headers],
+        body: cleanRows.map(row => headers.map(h => row[h] || '')),
+        startY: 20
+      });
+      doc.save(fileName.replace(/\.[^/.]+$/, '') + '.pdf');
     }
     return true;
   } catch (error) {
     console.error('Download Error:', error);
+    showSnackbar('Download failed.');
     return false;
   }
 }
@@ -303,7 +340,10 @@ function undoAction() {
     lastAction.rows.forEach(({ index, oldRow }) => {
       rows[index] = oldRow;
     });
+  } else if (lastAction.type === 'addAfter') {
+    rows.splice(lastAction.index + 1, 1);
   }
+  sessionStorage.setItem('rows', JSON.stringify(rows));
   renderRows();
   saveSession();
   showSnackbar('Action undone!');
@@ -331,8 +371,11 @@ async function syncOfflineQueue() {
         rows[action.index] = action.row;
       } else if (action.type === 'delete') {
         rows.splice(action.index, 1);
+      } else if (action.type === 'addAfter') {
+        rows.splice(action.index + 1, 0, action.row);
       }
     });
+    sessionStorage.setItem('rows', JSON.stringify(rows));
     saveSession();
     store.clear();
     offlineQueue = [];
@@ -369,7 +412,14 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     panel.innerHTML = `
       <div class="panel-header">
         <h2>${title}</h2>
-        <button class="btn btn-secondary close-panel-btn" aria-label="Close ${title.toLowerCase()} panel">Close</button>
+        <div class="panel-actions">
+          <button class="btn btn-secondary close-panel-btn" aria-label="Close ${title.toLowerCase()} panel">Close</button>
+          <select class="btn btn-primary action-dropdown" aria-label="Actions">
+            <option value="">Actions</option>
+            <option value="delete">Delete Row</option>
+            <option value="addAfter">Add Row After</option>
+          </select>
+        </div>
       </div>
       <div class="panel-content"></div>
     `;
@@ -384,6 +434,39 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
         searchBtn.style.display = 'block';
         bulkEditBtn.style.display = 'block';
         settingsBtn.style.display = 'block';
+      }
+    };
+    panel.querySelector('.action-dropdown').onchange = (e) => {
+      const action = e.target.value;
+      e.target.value = '';
+      if (action === 'delete') {
+        const rowNum = prompt('Enter row number to delete (1 to ' + rows.length + '):');
+        if (rowNum && !isNaN(rowNum) && rowNum >= 1 && rowNum <= rows.length) {
+          if (confirm('Are you sure you want to delete row ' + rowNum + '?')) {
+            lastAction = { type: 'delete', row: rows[rowNum - 1], index: rowNum - 1 };
+            rows.splice(rowNum - 1, 1);
+            sessionStorage.setItem('rows', JSON.stringify(rows));
+            renderRows();
+            saveSession();
+            showSnackbar('Row deleted!', 'undoAction()');
+          }
+        } else {
+          showSnackbar('Invalid row number.');
+        }
+      } else if (action === 'addAfter') {
+        const rowNum = prompt('Enter row number to add after (1 to ' + rows.length + '):');
+        if (rowNum && !isNaN(rowNum) && rowNum >= 0 && rowNum <= rows.length) {
+          const newRow = {};
+          headers.forEach(h => newRow[h] = '');
+          lastAction = { type: 'addAfter', row: newRow, index: rowNum };
+          rows.splice(rowNum, 0, newRow);
+          sessionStorage.setItem('rows', JSON.stringify(rows));
+          renderRows();
+          saveSession();
+          showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
+        } else {
+          showSnackbar('Invalid row number.');
+        }
       }
     };
     let startY = 0;
@@ -500,6 +583,9 @@ function createTemplatePanel() {
         rows = [];
         const templateName = form.querySelector('#template-name').value.trim();
         currentFileName = templateName ? `${templateName}.xlsx` : `template_${Date.now()}.xlsx`;
+        sessionStorage.setItem('headers', JSON.stringify(headers));
+        sessionStorage.setItem('rows', JSON.stringify(rows));
+        sessionStorage.setItem('currentFileName', currentFileName);
         updateProgress();
         generateForm();
         saveSession();
@@ -507,12 +593,13 @@ function createTemplatePanel() {
         dataEntryScreen.style.display = 'block';
         hideAllPanels();
         showSnackbar('Template created!');
+        sessionStorage.setItem('currentPage', 'data-entry');
       }
     };
   }, homeScreen);
 }
 
-// Your Works Panel
+// Your Works Panel with Confirmation
 function showYourWorksPanel() {
   createSlidePanel('your-works-panel', 'Your Works 📂', content => {
     if (sessions.length === 0) {
@@ -535,6 +622,18 @@ function showYourWorksPanel() {
   }, homeScreen);
 }
 
+function deleteSession(index) {
+  if (confirm('Are you sure you want to delete ' + sessions[index].fileName + '? This action cannot be undone.')) {
+    const fileName = sessions[index].fileName;
+    sessions.splice(index, 1);
+    const transaction = db.transaction(['sessions'], 'readwrite');
+    const store = transaction.objectStore('sessions');
+    store.delete(fileName);
+    showYourWorksPanel();
+    showSnackbar('Session deleted!');
+  }
+}
+
 // Preset Functions
 function applyPreset(i) {
   const preset = presets[i];
@@ -554,46 +653,46 @@ function deletePreset(i) {
 
 // Event Listeners
 startNewBtn.addEventListener('click', () => {
-  console.log('Start New clicked');
   fileInput.click();
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 createTemplateBtn.addEventListener('click', () => {
-  console.log('Create Template clicked');
   createTemplatePanel();
+  sessionStorage.setItem('currentPage', 'home');
 });
 
 yourWorksBtn.addEventListener('click', () => {
-  console.log('Your Works clicked');
   showYourWorksPanel();
+  sessionStorage.setItem('currentPage', 'home');
 });
 
 fileInput.addEventListener('change', async () => {
   if (fileInput.files.length === 0) return;
   const file = fileInput.files[0];
-  console.log('File selected:', file.name);
   const success = await parseExcel(file);
   if (success) {
     currentFileName = file.name;
+    sessionStorage.setItem('currentFileName', currentFileName);
     updateProgress();
     generateForm();
     homeScreen.style.display = 'none';
     dataEntryScreen.style.display = 'block';
     saveSession();
     showSnackbar('File loaded successfully!');
+    sessionStorage.setItem('currentPage', 'data-entry');
   }
 });
 
 backBtn.addEventListener('click', () => {
-  console.log('Back clicked');
   resetState();
   dataEntryScreen.style.display = 'none';
   homeScreen.style.display = 'block';
   hideAllPanels();
+  sessionStorage.setItem('currentPage', 'home');
 });
 
 addRowBtn.addEventListener('click', () => {
-  console.log('Add Row clicked');
   const formData = new FormData(dataForm);
   const row = {};
   let valid = true;
@@ -622,7 +721,7 @@ addRowBtn.addEventListener('click', () => {
       rows.push(row);
       showSnackbar('Row added!', 'undoAction()');
     }
-    console.log('Row processed:', row);
+    sessionStorage.setItem('rows', JSON.stringify(rows));
     renderRows();
     dataForm.reset();
     if (navigator.onLine) {
@@ -636,34 +735,16 @@ addRowBtn.addEventListener('click', () => {
 });
 
 downloadBtn.addEventListener('click', async () => {
-  console.log('Download clicked');
-  try {
-    if (!rows.length) {
-      showSnackbar('No data to download.');
-      return;
-    }
-    if (!headers.length) {
-      showSnackbar('No headers found.');
-      return;
-    }
-    const cleanRows = rows.map(row => {
-      const cleanRow = {};
-      headers.forEach(h => {
-        cleanRow[h] = String(row[h] || '');
-      });
-      return cleanRow;
-    });
-    console.log('Cleaned rows for download:', cleanRows);
-    const fileName = currentFileName || 'data.xlsx';
-    const format = confirm('Download as CSV? Cancel for Excel.') ? 'csv' : 'xlsx';
-    if (await downloadFile(cleanRows, headers, fileName, format)) {
-      showSnackbar('File downloaded! Check your Downloads folder.');
+  const fileName = prompt('Enter file name:', currentFileName || 'data');
+  if (fileName) {
+    const format = prompt('Enter file type (pdf/excel/csv/txt):', 'excel');
+    if (format && ['pdf', 'excel', 'csv', 'txt'].includes(format.toLowerCase())) {
+      if (await downloadFile(rows, headers, fileName + (format === 'excel' ? '.xlsx' : '.' + format), format.toLowerCase())) {
+        showSnackbar('File downloaded! Check your Downloads folder.');
+      }
     } else {
-      showSnackbar('Download failed.');
+      showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
     }
-  } catch (error) {
-    showSnackbar('Error generating file.');
-    console.error('Download Error:', error);
   }
 });
 
@@ -673,66 +754,68 @@ function resumeSession(index) {
   headers = session.headers;
   rows = session.rows;
   currentFileName = session.fileName;
+  sessionStorage.setItem('headers', JSON.stringify(headers));
+  sessionStorage.setItem('rows', JSON.stringify(rows));
+  sessionStorage.setItem('currentFileName', currentFileName);
   updateProgress();
   generateForm();
   renderRows();
   homeScreen.style.display = 'none';
   dataEntryScreen.style.display = 'block';
+  sessionStorage.setItem('currentPage', 'data-entry');
 }
 
 async function exportSession(index) {
-  console.log('Export session:', index);
-  try {
-    const session = sessions[index];
-    if (!session.rows.length) {
-      showSnackbar('No data to export.');
-      return;
-    }
-    if (!session.headers.length) {
-      showSnackbar('No headers found.');
-      return;
-    }
-    const cleanRows = session.rows.map(row => {
-      const cleanRow = {};
-      session.headers.forEach(h => {
-        cleanRow[h] = String(row[h] || '');
-      });
-      return cleanRow;
+  const session = sessions[index];
+  if (!session.rows.length) {
+    showSnackbar('No data to export.');
+    return;
+  }
+  if (!session.headers.length) {
+    showSnackbar('No headers found.');
+    return;
+  }
+  const cleanRows = session.rows.map(row => {
+    const cleanRow = {};
+    session.headers.forEach(h => {
+      cleanRow[h] = String(row[h] || '');
     });
-    console.log('Cleaned rows for export:', cleanRows);
-    const fileName = session.fileName;
-    const format = confirm('Download as CSV? Cancel for Excel.') ? 'csv' : 'xlsx';
-    if (await downloadFile(cleanRows, session.headers, fileName, format)) {
-      showSnackbar('Session exported! Check your Downloads folder.');
+    return cleanRow;
+  });
+  const fileName = prompt('Enter file name:', session.fileName || 'export');
+  if (fileName) {
+    const format = prompt('Enter file type (pdf/excel/csv/txt):', 'excel');
+    if (format && ['pdf', 'excel', 'csv', 'txt'].includes(format.toLowerCase())) {
+      if (await downloadFile(cleanRows, session.headers, fileName + (format === 'excel' ? '.xlsx' : '.' + format), format.toLowerCase())) {
+        showSnackbar('Session exported! Check your Downloads folder.');
+      }
     } else {
-      showSnackbar('Export failed.');
+      showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
     }
-  } catch (error) {
-    showSnackbar('Error exporting session.');
-    console.error('Export Error:', error);
   }
 }
 
 function deleteSession(index) {
-  const fileName = sessions[index].fileName;
-  sessions.splice(index, 1);
-  const transaction = db.transaction(['sessions'], 'readwrite');
-  const store = transaction.objectStore('sessions');
-  store.delete(fileName);
-  showYourWorksPanel();
-  showSnackbar('Session deleted!');
+  if (confirm('Are you sure you want to delete ' + sessions[index].fileName + '? This action cannot be undone.')) {
+    const fileName = sessions[index].fileName;
+    sessions.splice(index, 1);
+    const transaction = db.transaction(['sessions'], 'readwrite');
+    const store = transaction.objectStore('sessions');
+    store.delete(fileName);
+    showYourWorksPanel();
+    showSnackbar('Session deleted!');
+  }
 }
 
 // Data Entry Panels
 viewRowsBtn.addEventListener('click', () => {
-  console.log('View Rows clicked');
   createSlidePanel('rows-panel', 'Your Rows 👀', content => {
-    renderRows(content);
+    renderRows(content, rows, true);
   });
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 presetsBtn.addEventListener('click', () => {
-  console.log('Presets clicked');
   createSlidePanel('presets-panel', 'Presets ⭐', content => {
     const form = document.createElement('form');
     generateForm(form);
@@ -771,10 +854,10 @@ presetsBtn.addEventListener('click', () => {
     }
     renderPresets();
   });
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 searchBtn.addEventListener('click', () => {
-  console.log('Search clicked');
   createSlidePanel('search-panel', 'Search Rows 🔍', content => {
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
@@ -788,13 +871,13 @@ searchBtn.addEventListener('click', () => {
     searchInput.oninput = () => {
       const term = searchInput.value.toLowerCase();
       const filtered = rows.filter(row => headers.some(h => String(row[h]).toLowerCase().includes(term)));
-      renderRows(resultDiv, filtered);
+      renderRows(resultDiv, filtered, true);
     };
   });
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 bulkEditBtn.addEventListener('click', () => {
-  console.log('Bulk Edit clicked');
   createSlidePanel('bulk-edit-panel', 'Bulk Edit ✏️', content => {
     const selectedRows = [];
     const tableDiv = document.createElement('div');
@@ -834,6 +917,7 @@ bulkEditBtn.addEventListener('click', () => {
       selectedRows.forEach(i => {
         Object.assign(rows[i], changes);
       });
+      sessionStorage.setItem('rows', JSON.stringify(rows));
       renderRows();
       saveSession();
       hideAllPanels();
@@ -843,10 +927,10 @@ bulkEditBtn.addEventListener('click', () => {
     content.appendChild(form);
     content.appendChild(applyBtn);
   });
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 settingsBtn.addEventListener('click', () => {
-  console.log('Settings clicked');
   createSlidePanel('settings-panel', 'Settings ⚙️', content => {
     const validationForm = document.createElement('form');
     headers.forEach(h => {
@@ -920,6 +1004,7 @@ settingsBtn.addEventListener('click', () => {
     content.appendChild(importBtn);
     content.appendChild(importInput);
   });
+  sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 function positiveRule(value) {
@@ -935,37 +1020,45 @@ let originalAddRowPosition = null;
 function handleAddRowScroll() {
   const container = document.querySelector('.container');
   const addRowRect = addRowBtn.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-  const windowHeight = window.innerHeight;
+  const formFields = dataForm.querySelectorAll('input');
+  const lastField = formFields[formFields.length - 1];
+  const lastFieldRect = lastField ? lastField.getBoundingClientRect() : { bottom: 0 };
 
   if (!originalAddRowPosition) {
-    originalAddRowPosition = addRowRect.top - containerRect.top + container.scrollTop;
+    originalAddRowPosition = addRowRect.top - container.getBoundingClientRect().top + container.scrollTop;
   }
 
   const scrollTop = container.scrollTop;
-  const threshold = originalAddRowPosition - 10; // Small buffer to switch back
-  const buttonHeight = addRowBtn.offsetHeight;
+  const threshold = lastFieldRect.bottom - container.getBoundingClientRect().top;
 
-  if (scrollTop < threshold && addRowRect.bottom <= windowHeight) {
+  if (scrollTop < threshold && addRowRect.bottom <= window.innerHeight) {
     addRowBtn.style.position = 'static';
+    addRowBtn.style.top = 'auto';
     addRowBtn.style.bottom = 'auto';
     addRowBtn.style.width = '100%';
   } else {
     addRowBtn.style.position = 'fixed';
-    addRowBtn.style.bottom = '0';
+    addRowBtn.style.top = `${lastFieldRect.bottom}px`;
+    addRowBtn.style.bottom = 'auto';
     addRowBtn.style.width = '100%';
     addRowBtn.style.zIndex = '15';
-    if (addRowRect.top < 0) {
-      addRowBtn.style.top = 'auto'; // Ensure it doesn't go off-screen above
-    }
   }
 }
 
 container.addEventListener('scroll', handleAddRowScroll);
-window.addEventListener('resize', handleAddRowScroll); // Handle screen resize
+window.addEventListener('resize', handleAddRowScroll);
 
 // Initialize
 updateProgress();
+if (currentPage === 'data-entry' && headers.length > 0) {
+  dataEntryScreen.style.display = 'block';
+  homeScreen.style.display = 'none';
+  generateForm();
+  renderRows();
+} else {
+  homeScreen.style.display = 'block';
+  dataEntryScreen.style.display = 'none';
+}
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service Worker Error:', err));
 }

@@ -32,8 +32,9 @@ body {
   padding: 15px;
   margin: 0 auto;
   overflow-y: auto;
-  max-height: calc(100vh - 120px - 56px); /* Adjust for header (60px) + button (56px) */
+  max-height: calc(100vh - 120px - 56px);
   flex: 1;
+  position: relative;
 }
 h1 {
   font-size: 1.8rem;
@@ -97,10 +98,10 @@ h2 {
   width: 100%;
 }
 #add-row {
-  background: #28a745; /* Changed to green */
+  background: #28a745;
 }
 #add-row:active {
-  background: #218838; /* Darker green for active state */
+  background: #218838;
 }
 .sticky-header {
   position: sticky;
@@ -166,6 +167,9 @@ table {
   border-collapse: collapse;
   margin: 15px 0;
   animation: fadeIn 0.3s;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 th, td {
   padding: 12px;
@@ -173,10 +177,21 @@ th, td {
   text-align: left;
   font-size: 0.95rem;
   min-height: 56px;
+  vertical-align: top;
 }
 th {
   background: var(--btn-bg);
   color: white;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+td input {
+  width: 100%;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
 }
 td:empty::after, td[data-value="-"]::after {
   content: '-';
@@ -214,6 +229,13 @@ tr:active {
   min-width: 0;
   margin: 0;
 }
+.btn-delete {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  min-height: 40px;
+  width: 80px;
+  margin: 0;
+}
 .add-row-fixed {
   position: static;
   width: 100%;
@@ -221,6 +243,7 @@ tr:active {
 }
 .add-row-fixed.fixed {
   position: fixed;
+  top: auto;
   bottom: 0;
   z-index: 15;
   width: 100%;
