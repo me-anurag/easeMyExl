@@ -128,19 +128,34 @@ async function parseExcel(file, append = false) {
   }
 }
 
-// Generate Form
+// Generate Form with Enter Key Navigation
 function generateForm(container = dataForm) {
   container.innerHTML = '';
-  headers.forEach(header => {
+  headers.forEach((header, index) => {
     const div = document.createElement('div');
     const inputType = header.toLowerCase().includes('date') ? 'date' :
                       header.toLowerCase().includes('quantity') || header.toLowerCase().includes('price') ? 'number' : 'text';
     div.innerHTML = `
       <label for="${header}">${header}</label>
-      <input type="${inputType}" id="${header}" name="${header}" aria-label="${header} input">
+      <input type="${inputType}" id="${header}" name="${header}" aria-label="${header} input" data-index="${index}">
       <div class="error" style="display: none;"></div>
     `;
     container.appendChild(div);
+  });
+  // Add Enter key navigation for mobile
+  container.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const currentIndex = parseInt(input.dataset.index);
+        const nextInput = container.querySelector(`input[data-index="${currentIndex + 1}"]`);
+        if (nextInput) {
+          nextInput.focus();
+        } else if (currentIndex === headers.length - 1) {
+          addRowBtn.focus();
+        }
+      }
+    });
   });
   // Ensure buttons are in correct order and visible
   const buttons = [addRowBtn, viewRowsBtn, settingsBtn, bulkEditBtn, searchBtn, presetsBtn];
@@ -150,7 +165,7 @@ function generateForm(container = dataForm) {
   });
 }
 
-// Render Rows with Row Number, Column Numbers, and Editable Headers
+// Render Rows
 function renderRows(container, data = rows, editable = true) {
   if (!container) return;
   container.innerHTML = '';
@@ -163,15 +178,48 @@ function renderRows(container, data = rows, editable = true) {
   const tbody = document.createElement('tbody');
   thead.innerHTML = `
     <tr>
+      <th>Col #</th>
+      ${headers.map((_, i) => `<th>${i + 1}</th>`).join('')}
+    </tr>
+    <tr>
       <th>Row #</th>
-      ${headers.map((h, i) => `<th><input type="text" value="${h}" data-index="${i}" class="header-edit" aria-label="Edit header ${h}"></th>`).join('')}
+      ${headers.map(h => `<th><input type="text" value="${h}" class="header-edit" data-index="${headers.indexOf(h)}" style="width: 100%; height: 100%; box-sizing: border-box;"></th>`).join('')}
     </tr>
   `;
+  thead.querySelectorAll('.header-edit').forEach(input => {
+    input.onchange = () => {
+      const newValue = input.value.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+      const index = parseInt(input.dataset.index);
+      if (newValue && !headers.includes(newValue)) {
+        lastAction = { type: 'updateHeader', oldHeader: headers[index], newHeader: newValue, index };
+        headers[index] = newValue;
+        rows.forEach(row => {
+          row[newValue] = row[headers[index]];
+          delete row[headers[index]];
+        });
+        sessionStorage.setItem('headers', JSON.stringify(headers));
+        sessionStorage.setItem('rows', JSON.stringify(rows));
+        saveSession();
+        renderRows(container);
+        showSnackbar('Header updated!', 'undoAction()');
+      } else {
+        showSnackbar('Invalid or duplicate header name.');
+        renderRows(container);
+      }
+    };
+    input.onblur = () => {
+      if (!input.value.trim()) {
+        input.value = headers[parseInt(input.dataset.index)];
+        showSnackbar('Header cannot be empty.');
+      }
+    };
+    input.parentElement.onclick = (e) => input.focus();
+  });
   data.forEach((row, index) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${index + 1}</td>
-      ${headers.map(h => `<td><input type="text" value="${row[h] || ''}" data-index="${index}" data-header="${h}" ${editable ? '' : 'readonly'}></td>`).join('')}
+      ${headers.map(h => `<td><input type="text" value="${row[h] || ''}" data-index="${index}" data-header="${h}" ${editable ? '' : 'readonly'} style="width: 100%; height: 100%; box-sizing: border-box;"></td>`).join('')}
     `;
     if (editable) {
       tr.querySelectorAll('input').forEach(input => {
@@ -183,34 +231,16 @@ function renderRows(container, data = rows, editable = true) {
           rows[rowIndex][header] = newValue;
           sessionStorage.setItem('rows', JSON.stringify(rows));
           saveSession();
-          renderRows(container); // Real-time update
+          renderRows(container);
           showSnackbar('Cell updated!', 'undoAction()');
+        };
+        input.parentElement.onclick = (e) => {
+          if (!input.readOnly) input.focus();
+          e.stopPropagation();
         };
       });
     }
     tbody.appendChild(tr);
-  });
-  // Make headers editable
-  thead.querySelectorAll('.header-edit').forEach(input => {
-    input.onchange = () => {
-      const newHeader = input.value.trim().replace(/[^a-zA-Z0-9\s]/g, '');
-      const index = parseInt(input.dataset.index);
-      if (newHeader && !headers.includes(newHeader)) {
-        headers[index] = newHeader;
-        rows.forEach(row => {
-          row[newHeader] = row[headers[index]]; // Transfer data to new header
-          delete row[headers[index]]; // Remove old header data
-        });
-        sessionStorage.setItem('headers', JSON.stringify(headers));
-        sessionStorage.setItem('rows', JSON.stringify(rows));
-        generateForm(); // Update form with new headers
-        saveSession();
-        renderRows(container); // Re-render with updated headers
-        showSnackbar('Header updated!', 'undoAction()');
-      } else if (headers.includes(newHeader)) {
-        showSnackbar('Duplicate header name not allowed.');
-      }
-    };
   });
   table.appendChild(thead);
   table.appendChild(tbody);
@@ -287,21 +317,46 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       });
       return cleanRow;
     });
+    showSnackbar('Downloading...');
     if (format === 'xlsx') {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Sheet1');
       worksheet.columns = headers.map(h => ({ header: h, key: h }));
-      cleanRows.forEach(row => worksheet.addRow(row));
+      cleanRows.forEach(row => {
+        worksheet.addRow(row);
+      });
       const buffer = await workbook.xlsx.writeBuffer();
+      console.log('Buffer length:', buffer.byteLength); // Debug buffer size
+      if (!buffer || buffer.byteLength === 0) {
+        throw new Error('Empty buffer generated by ExcelJS');
+      }
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`;
       document.body.appendChild(a);
-      a.click();
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      // Fallback: Trigger download via data URI if click fails
+      setTimeout(() => {
+        if (!document.hidden) { // Check if download didn't start
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUri = reader.result;
+            const fallbackA = document.createElement('a');
+            fallbackA.href = dataUri;
+            fallbackA.download = a.download;
+            document.body.appendChild(fallbackA);
+            fallbackA.click();
+            document.body.removeChild(fallbackA);
+          };
+          reader.readAsDataURL(blob);
+          showSnackbar('Using fallback download method.');
+        }
+      }, 100);
+      showSnackbar('Downloaded!');
     } else if (format === 'csv') {
       const csv = [headers.join(','), ...cleanRows.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -313,6 +368,7 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      showSnackbar('Downloaded!');
     } else if (format === 'txt') {
       const txt = cleanRows.map(row => headers.map(h => row[h] || '').join('\t')).join('\n');
       const blob = new Blob([txt], { type: 'text/plain' });
@@ -324,6 +380,7 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      showSnackbar('Downloaded!');
     } else if (format === 'pdf') {
       const doc = new jsPDF();
       doc.text('Data Export', 10, 10);
@@ -333,11 +390,12 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
         startY: 20
       });
       doc.save(fileName.replace(/\.[^/.]+$/, '') + '.pdf');
+      showSnackbar('Downloaded!');
     }
     return true;
   } catch (error) {
-    console.error('Download Error:', error);
-    showSnackbar('Download failed.');
+    console.error('Download Error:', error.message, error.stack);
+    showSnackbar(`Download failed: ${error.message}`);
     return false;
   }
 }
@@ -360,8 +418,17 @@ function undoAction() {
   } else if (lastAction.type === 'addColumn') {
     headers.splice(lastAction.index + 1, 1);
     rows.forEach(row => delete row[lastAction.newHeader]);
+  } else if (lastAction.type === 'deleteColumn') {
+    headers.splice(lastAction.index, 1);
+    rows.forEach(row => delete row[lastAction.header]);
+  } else if (lastAction.type === 'updateHeader') {
+    headers[lastAction.index] = lastAction.oldHeader;
+    rows.forEach(row => {
+      row[lastAction.oldHeader] = row[lastAction.newHeader];
+      delete row[lastAction.newHeader];
+    });
   } else if (lastAction.type === 'border') {
-    // No undo for borders yet, could store previous state if needed
+    // No undo for borders yet
   }
   sessionStorage.setItem('rows', JSON.stringify(rows));
   sessionStorage.setItem('headers', JSON.stringify(headers));
@@ -397,6 +464,15 @@ async function syncOfflineQueue() {
       } else if (action.type === 'addColumn') {
         headers.splice(action.index + 1, 0, action.newHeader);
         rows.forEach(row => row[action.newHeader] = '');
+      } else if (action.type === 'deleteColumn') {
+        headers.splice(action.index, 1);
+        rows.forEach(row => delete row[action.header]);
+      } else if (action.type === 'updateHeader') {
+        headers[action.index] = action.oldHeader;
+        rows.forEach(row => {
+          row[action.oldHeader] = row[action.newHeader];
+          delete row[action.newHeader];
+        });
       } else if (action.type === 'border') {
         // Handle border update if implemented
       }
@@ -446,6 +522,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             <option value="delete">Delete Row</option>
             <option value="addAfter">Add Row After</option>
             <option value="addColumn">Add Column</option>
+            <option value="deleteColumn">Delete Column</option>
             <option value="border">Add Border</option>
           </select>
           <select class="btn btn-primary border-sub-options" aria-label="Border options" style="display: none;">
@@ -474,67 +551,88 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     const borderSubOptions = panel.querySelector('.border-sub-options');
     dropdown.onchange = (e) => {
       const action = e.target.value;
-      e.target.value = '';
       if (action === 'border') {
         borderSubOptions.style.display = 'block';
         borderSubOptions.focus();
+        e.target.value = '';
       } else {
         borderSubOptions.style.display = 'none';
-      }
-      if (action === 'delete') {
-        const rowNum = prompt('Enter row number to delete (1 to ' + rows.length + '):');
-        if (rowNum && !isNaN(rowNum) && rowNum >= 1 && rowNum <= rows.length) {
-          if (confirm('Are you sure you want to delete row ' + rowNum + '?')) {
-            lastAction = { type: 'delete', row: rows[rowNum - 1], index: rowNum - 1 };
-            rows.splice(rowNum - 1, 1);
+        if (action === 'delete') {
+          const rowNum = prompt('Enter row number to delete (1 to ' + rows.length + '):');
+          if (rowNum && !isNaN(rowNum) && rowNum >= 1 && rowNum <= rows.length) {
+            if (confirm('Are you sure you want to delete row ' + rowNum + '?')) {
+              lastAction = { type: 'delete', row: rows[rowNum - 1], index: rowNum - 1 };
+              rows.splice(rowNum - 1, 1);
+              sessionStorage.setItem('rows', JSON.stringify(rows));
+              saveSession();
+              renderRows(panel.querySelector('.panel-content'));
+              showSnackbar('Row deleted!', 'undoAction()');
+            }
+          } else {
+            showSnackbar('Invalid row number.');
+          }
+          e.target.value = '';
+        } else if (action === 'addAfter') {
+          const rowNum = prompt('Enter row number to add after (1 to ' + rows.length + '):');
+          if (rowNum && !isNaN(rowNum) && rowNum >= 0 && rowNum <= rows.length) {
+            const newRow = {};
+            headers.forEach(h => newRow[h] = '');
+            lastAction = { type: 'addAfter', row: newRow, index: rowNum };
+            rows.splice(rowNum, 0, newRow);
             sessionStorage.setItem('rows', JSON.stringify(rows));
             saveSession();
-            renderRows(panel.querySelector('.panel-content')); // Real-time update
-            showSnackbar('Row deleted!', 'undoAction()');
+            renderRows(panel.querySelector('.panel-content'));
+            showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
+          } else {
+            showSnackbar('Invalid row number.');
           }
-        } else {
-          showSnackbar('Invalid row number.');
-        }
-      } else if (action === 'addAfter') {
-        const rowNum = prompt('Enter row number to add after (1 to ' + rows.length + '):');
-        if (rowNum && !isNaN(rowNum) && rowNum >= 0 && rowNum <= rows.length) {
-          const newRow = {};
-          headers.forEach(h => newRow[h] = '');
-          lastAction = { type: 'addAfter', row: newRow, index: rowNum };
-          rows.splice(rowNum, 0, newRow);
-          sessionStorage.setItem('rows', JSON.stringify(rows));
-          saveSession();
-          renderRows(panel.querySelector('.panel-content')); // Real-time update
-          showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
-        } else {
-          showSnackbar('Invalid row number.');
-        }
-      } else if (action === 'addColumn') {
-        const colNum = prompt('Enter column number to add after (1 to ' + headers.length + '):');
-        const colName = prompt('Enter column name:');
-        if (colNum && !isNaN(colNum) && colNum >= 0 && colNum <= headers.length && colName && colName.trim()) {
-          const newHeader = colName.trim().replace(/[^a-zA-Z0-9\s]/g, '');
-          if (headers.includes(newHeader)) {
-            showSnackbar('Column name already exists.');
-            return;
+          e.target.value = '';
+        } else if (action === 'addColumn') {
+          const colNum = prompt('Enter column number to add after (refer to Col # row) (1 to ' + headers.length + '):');
+          const colName = prompt('Enter column name:');
+          if (colNum && !isNaN(colNum) && colNum >= 0 && colNum <= headers.length && colName && colName.trim()) {
+            const newHeader = colName.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+            if (headers.includes(newHeader)) {
+              showSnackbar('Column name already exists.');
+              return;
+            }
+            lastAction = { type: 'addColumn', index: colNum, newHeader };
+            headers.splice(colNum, 0, newHeader);
+            rows.forEach(row => row[newHeader] = '');
+            sessionStorage.setItem('headers', JSON.stringify(headers));
+            sessionStorage.setItem('rows', JSON.stringify(rows));
+            saveSession();
+            generateForm();
+            renderRows(panel.querySelector('.panel-content'));
+            showSnackbar('Column added!', 'undoAction()');
+          } else {
+            showSnackbar('Invalid column number or name.');
           }
-          lastAction = { type: 'addColumn', index: colNum, newHeader };
-          headers.splice(colNum, 0, newHeader);
-          rows.forEach(row => row[newHeader] = '');
-          sessionStorage.setItem('headers', JSON.stringify(headers));
-          sessionStorage.setItem('rows', JSON.stringify(rows));
-          saveSession();
-          generateForm();
-          renderRows(panel.querySelector('.panel-content')); // Real-time update
-          showSnackbar('Column added!', 'undoAction()');
-        } else {
-          showSnackbar('Invalid column number or name.');
+          e.target.value = '';
+        } else if (action === 'deleteColumn') {
+          const colNum = prompt('Enter column number to delete (1 to ' + headers.length + '):');
+          if (colNum && !isNaN(colNum) && colNum >= 1 && colNum <= headers.length) {
+            const header = headers[colNum - 1];
+            if (confirm('Are you sure you want to delete column ' + header + '?')) {
+              lastAction = { type: 'deleteColumn', index: colNum - 1, header };
+              headers.splice(colNum - 1, 1);
+              rows.forEach(row => delete row[header]);
+              sessionStorage.setItem('headers', JSON.stringify(headers));
+              sessionStorage.setItem('rows', JSON.stringify(rows));
+              saveSession();
+              generateForm();
+              renderRows(panel.querySelector('.panel-content'));
+              showSnackbar('Column deleted!', 'undoAction()');
+            }
+          } else {
+            showSnackbar('Invalid column number.');
+          }
+          e.target.value = '';
         }
       }
     };
     borderSubOptions.onchange = (e) => {
       const borderType = e.target.value;
-      e.target.value = '';
       borderSubOptions.style.display = 'none';
       applyBorder(borderType, panel.querySelector('.panel-content'));
       lastAction = { type: 'border', borderType };
@@ -564,10 +662,10 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
   content.innerHTML = '';
   contentGenerator(content);
   panel.classList.add('show');
-  renderRows(content); // Initial render
+  if (id === 'rows-panel') renderRows(content); // Only render rows for viewRowsBtn
 }
 
-// Apply Borders (Fixed for All Borders)
+// Apply Borders
 function applyBorder(borderType, container) {
   const table = container.querySelector('table');
   if (!table) return;
@@ -584,7 +682,7 @@ function applyBorder(borderType, container) {
       }
     }
   });
-  renderRows(container); // Re-render to reflect changes
+  renderRows(container);
 }
 
 // Create Template
@@ -731,7 +829,7 @@ function applyPreset(i) {
   const preset = presets[i];
   headers.forEach(h => {
     const input = dataForm.querySelector(`[name="${h}"]`);
-    input.value = preset[h] || '';
+    if (input) input.value = preset[h] || '';
   });
   hideAllPanels();
   showSnackbar('Preset applied!');
@@ -741,6 +839,23 @@ function deletePreset(i) {
   presets.splice(i, 1);
   localStorage.setItem('presets', JSON.stringify(presets));
   showSnackbar('Preset deleted!');
+  renderPresets();
+}
+
+function renderPresets(container) {
+  container.innerHTML = presets.length ? '' : '<p>No presets yet.</p>';
+  presets.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'preset-item';
+    div.innerHTML = `
+      <span>${Object.values(p).filter(v => v).join(', ')}</span>
+      <div>
+        <button class="btn btn-primary" onclick="applyPreset(${i})" aria-label="Apply preset ${i + 1}">Apply ✅</button>
+        <button class="btn btn-secondary" onclick="deletePreset(${i})" aria-label="Delete preset ${i + 1}">Delete ❌</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
 }
 
 // Event Listeners
@@ -831,8 +946,8 @@ downloadBtn.addEventListener('click', async () => {
   if (fileName) {
     const format = prompt('Enter file type (pdf/excel/csv/txt):', 'excel');
     if (format && ['pdf', 'excel', 'csv', 'txt'].includes(format.toLowerCase())) {
-      if (await downloadFile(rows, headers, fileName + (format === 'excel' ? '.xlsx' : '.' + format), format.toLowerCase())) {
-        showSnackbar('File downloaded! Check your Downloads folder.');
+      if (await downloadFile(rows, headers, fileName, format.toLowerCase())) {
+        showSnackbar('Downloaded!');
       }
     } else {
       showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
@@ -840,66 +955,6 @@ downloadBtn.addEventListener('click', async () => {
   }
 });
 
-// Session Actions
-function resumeSession(index) {
-  const session = sessions[index];
-  headers = session.headers;
-  rows = session.rows;
-  currentFileName = session.fileName;
-  sessionStorage.setItem('headers', JSON.stringify(headers));
-  sessionStorage.setItem('rows', JSON.stringify(rows));
-  sessionStorage.setItem('currentFileName', currentFileName);
-  updateProgress();
-  generateForm();
-  renderRows(rowTable);
-  homeScreen.style.display = 'none';
-  dataEntryScreen.style.display = 'block';
-  sessionStorage.setItem('currentPage', 'data-entry');
-}
-
-async function exportSession(index) {
-  const session = sessions[index];
-  if (!session.rows.length) {
-    showSnackbar('No data to export.');
-    return;
-  }
-  if (!session.headers.length) {
-    showSnackbar('No headers found.');
-    return;
-  }
-  const cleanRows = session.rows.map(row => {
-    const cleanRow = {};
-    session.headers.forEach(h => {
-      cleanRow[h] = String(row[h] || '');
-    });
-    return cleanRow;
-  });
-  const fileName = prompt('Enter file name:', session.fileName || 'export');
-  if (fileName) {
-    const format = prompt('Enter file type (pdf/excel/csv/txt):', 'excel');
-    if (format && ['pdf', 'excel', 'csv', 'txt'].includes(format.toLowerCase())) {
-      if (await downloadFile(cleanRows, session.headers, fileName + (format === 'excel' ? '.xlsx' : '.' + format), format.toLowerCase())) {
-        showSnackbar('Session exported! Check your Downloads folder.');
-      }
-    } else {
-      showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
-    }
-  }
-}
-
-function deleteSession(index) {
-  if (confirm('Are you sure you want to delete ' + sessions[index].fileName + '? This action cannot be undone.')) {
-    const fileName = sessions[index].fileName;
-    sessions.splice(index, 1);
-    const transaction = db.transaction(['sessions'], 'readwrite');
-    const store = transaction.objectStore('sessions');
-    store.delete(fileName);
-    showYourWorksPanel();
-    showSnackbar('Session deleted!');
-  }
-}
-
-// Data Entry Panels
 viewRowsBtn.addEventListener('click', () => {
   createSlidePanel('rows-panel', 'Your Rows 👀', content => {
     renderRows(content, rows, true);
@@ -914,37 +969,26 @@ presetsBtn.addEventListener('click', () => {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'btn btn-primary btn-full';
     saveBtn.textContent = 'Save Preset ⭐';
+    saveBtn.type = 'button'; // Explicitly set as button to prevent form submission
     saveBtn.onclick = e => {
       e.preventDefault();
       const formData = new FormData(form);
       const preset = {};
-      headers.forEach(h => preset[h] = formData.get(h) || '');
+      headers.forEach(h => {
+        const value = formData.get(h);
+        preset[h] = value ? String(value).trim() : '';
+      });
       presets.push(preset);
       localStorage.setItem('presets', JSON.stringify(presets));
       showSnackbar('Preset saved!');
-      renderPresets();
+      renderPresets(content);
     };
     content.appendChild(form);
     content.appendChild(saveBtn);
     const presetList = document.createElement('div');
     presetList.id = 'preset-list';
     content.appendChild(presetList);
-    function renderPresets() {
-      presetList.innerHTML = presets.length ? '' : '<p>No presets yet.</p>';
-      presets.forEach((p, i) => {
-        const div = document.createElement('div');
-        div.className = 'preset-item';
-        div.innerHTML = `
-          <span>${Object.values(p).filter(v => v).join(', ')}</span>
-          <div>
-            <button class="btn btn-primary" onclick="applyPreset(${i})" aria-label="Apply preset ${i + 1}">Apply ✅</button>
-            <button class="btn btn-secondary" onclick="deletePreset(${i})" aria-label="Delete preset ${i + 1}">Delete ❌</button>
-          </div>
-        `;
-        presetList.appendChild(div);
-      });
-    }
-    renderPresets();
+    renderPresets(presetList);
   });
   sessionStorage.setItem('currentPage', 'data-entry');
 });
@@ -978,7 +1022,8 @@ bulkEditBtn.addEventListener('click', () => {
     tableDiv.querySelectorAll('tr').forEach((tr, i) => {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
-      checkbox.onclick = () => {
+      checkbox.onclick = (e) => {
+        e.stopPropagation(); // Prevent propagation to parent elements
         if (checkbox.checked) {
           selectedRows.push(i);
         } else {
@@ -993,6 +1038,7 @@ bulkEditBtn.addEventListener('click', () => {
     const applyBtn = document.createElement('button');
     applyBtn.className = 'btn btn-primary btn-full';
     applyBtn.textContent = 'Apply Changes ✅';
+    applyBtn.type = 'button'; // Explicitly set as button to prevent form submission
     applyBtn.onclick = e => {
       e.preventDefault();
       if (!selectedRows.length) {

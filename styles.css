@@ -162,13 +162,18 @@ input, select {
   background: var(--panel-bg);
   color: var(--text);
 }
+/* ... (Previous CSS remains unchanged until table section) ... */
+
+/* ... (Previous CSS remains unchanged until table section) ... */
+
+/* ... (Previous CSS remains unchanged until table section) ... */
+
 table {
   width: 100%;
   border-collapse: collapse;
   margin: 15px 0;
   animation: fadeIn 0.3s;
-  display: block;
-  overflow-x: auto;
+  display: table; /* Ensure proper table layout */
   white-space: nowrap;
 }
 th, td {
@@ -178,6 +183,20 @@ th, td {
   font-size: 0.95rem;
   min-height: 56px;
   vertical-align: top;
+  position: relative;
+}
+th input.header-edit, td input {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  box-sizing: border-box;
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
 }
 th {
   background: var(--btn-bg);
@@ -191,13 +210,6 @@ th small {
   font-size: 0.7rem;
   color: #ccc;
 }
-td input {
-  width: 100%;
-  padding: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-}
 td:empty::after, td[data-value="-"]::after {
   content: '-';
   color: #999;
@@ -208,6 +220,8 @@ tr:nth-child(even) {
 tr:active {
   background: #e9ecef;
 }
+
+/* ... (Rest of the CSS remains unchanged) ... e CSS remains unchanged) ... */
 .work-card {
   background: var(--panel-bg);
   padding: 15px;
