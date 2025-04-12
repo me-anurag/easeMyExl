@@ -1,0 +1,17 @@
+{
+  "name": "excel-data-entry",
+  "version": "1.0.0",
+  "description": "Excel data entry app",
+  "main": "app.js",
+  "scripts": {
+    "start": "serve",
+    "bundle": "browserify app.js -o app-bundle.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "browserify": "^17.0.0",
+    "exceljs": "^4.4.0",
+    "serve": "^14.2.4"
+  }
+}
