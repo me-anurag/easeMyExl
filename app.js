@@ -24,8 +24,8 @@ const startNewBtn = document.getElementById('start-new');
 const createTemplateBtn = document.getElementById('create-template');
 const createCsvBtn = document.getElementById('create-csv');
 const yourWorksBtn = document.getElementById('your-works-btn');
-const settingsBtn = document.getElementById('settings-btn'); // Now on home screen
-const themeToggleBtn = document.getElementById('theme-toggle-btn'); // New toggle button
+const settingsBtn = document.getElementById('settings-btn');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 const backBtn = document.getElementById('back-btn');
 const downloadBtn = document.getElementById('download-btn');
 const dataForm = document.getElementById('data-form');
@@ -38,6 +38,7 @@ const viewRowsBtn = document.getElementById('view-rows-btn');
 const presetsBtn = document.getElementById('presets-btn');
 const searchBtn = document.getElementById('search-btn');
 const bulkEditBtn = document.getElementById('bulk-edit-btn');
+const formContainer = document.querySelector('.form-container');
 
 // IndexedDB
 let db;
@@ -71,7 +72,6 @@ const updateTheme = (newTheme) => {
   theme = newTheme;
   document.body.classList.add(theme);
   localStorage.setItem('theme', theme);
-  // Update toggle button icon
   if (themeToggleBtn) {
     themeToggleBtn.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
   }
@@ -898,6 +898,26 @@ function renderPresets(container) {
   });
 }
 
+// Keyboard Visibility Handler
+function handleKeyboardVisibility() {
+  if (!formContainer || !addRowBtn) return;
+
+  window.visualViewport.addEventListener('resize', () => {
+    const viewportHeight = window.visualViewport.height;
+    const windowHeight = window.innerHeight;
+    const keyboardOpen = viewportHeight < windowHeight * 0.9; // Rough heuristic for keyboard presence
+
+    if (keyboardOpen) {
+      formContainer.style.paddingBottom = '80px';
+      setTimeout(() => {
+        addRowBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+    } else {
+      formContainer.style.paddingBottom = '20px';
+    }
+  });
+}
+
 // Event Listeners
 startNewBtn.addEventListener('click', () => {
   fileInput.click();
@@ -985,6 +1005,9 @@ addRowBtn.addEventListener('click', () => {
       showSnackbar('Action queued offline.');
     }
     updateProgress();
+    setTimeout(() => {
+      addRowBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 100);
   }
 });
 
@@ -1167,7 +1190,7 @@ settingsBtn.addEventListener('click', () => {
     content.appendChild(validationForm);
     content.appendChild(importBtn);
     content.appendChild(importInput);
-  }, homeScreen); // Attach to home screen
+  }, homeScreen);
   sessionStorage.setItem('currentPage', 'home');
 });
 
@@ -1193,11 +1216,11 @@ try {
     homeScreen.style.display = 'none';
     dataEntryScreen.style.display = 'block';
     generateForm();
+    handleKeyboardVisibility();
   } else {
     homeScreen.style.display = 'block';
     dataEntryScreen.style.display = 'none';
   }
-  // Initialize theme toggle button icon
   if (themeToggleBtn) {
     themeToggleBtn.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
   }

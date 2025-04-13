@@ -45,6 +45,14 @@ body {
   position: relative;
 }
 
+/* Form Container */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-bottom: 20px;
+}
+
 /* Screens */
 #home-screen,
 #data-entry-screen {
@@ -145,11 +153,12 @@ h2 {
 }
 
 .add-row-sticky {
-  position: fixed;
-  bottom: 0;
+  position: sticky;
+  bottom: 15px;
   width: 100%;
   margin: 12px 0;
   z-index: 15;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* Header */
@@ -653,5 +662,13 @@ tr:active {
 
   .panel-actions .border-sub-options {
     width: 48%;
+  }
+
+  .form-container {
+    padding-bottom: 80px; /* Extra padding to ensure button visibility */
+  }
+
+  .add-row-sticky {
+    bottom: 10px;
   }
 }
