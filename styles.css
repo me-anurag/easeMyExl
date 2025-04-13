@@ -45,6 +45,20 @@ body {
   position: relative;
 }
 
+/* Upload Progress */
+#upload-progress {
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--panel-bg);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#progress-percent {
+  font-weight: bold;
+}
+
 /* Form Container */
 .form-container {
   display: flex;
@@ -665,10 +679,15 @@ tr:active {
   }
 
   .form-container {
-    padding-bottom: 80px; /* Extra padding to ensure button visibility */
+    padding-bottom: 80px;
   }
 
   .add-row-sticky {
     bottom: 10px;
+  }
+
+  #upload-progress {
+    font-size: 0.9rem;
+    padding: 8px;
   }
 }
