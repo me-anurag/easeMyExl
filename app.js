@@ -42,30 +42,30 @@ const settingsBtn = document.getElementById('settings-btn');
 let db;
 const openDB = () => new Promise((resolve, reject) => {
   const request = indexedDB.open('ExcelApp', 1);
-  request.onupgradeneeded = e => {
+  request.onupgradeneeded = (e) => {
     db = e.target.result;
     db.createObjectStore('sessions', { keyPath: 'fileName' });
     db.createObjectStore('offlineQueue', { autoIncrement: true });
   };
-  request.onsuccess = e => {
+  request.onsuccess = (e) => {
     db = e.target.result;
     resolve(db);
   };
-  request.onerror = e => reject(e.target.error);
+  request.onerror = (e) => reject(e.target.error);
 });
 
 // Initialize DB and load sessions
 openDB().then(() => {
   const transaction = db.transaction(['sessions'], 'readonly');
   const store = transaction.objectStore('sessions');
-  store.getAll().onsuccess = e => {
+  store.getAll().onsuccess = (e) => {
     sessions = e.target.result;
   };
-}).catch(err => console.error('DB Error:', err));
+}).catch((err) => console.error('DB Error:', err));
 
 // Theme
 document.body.classList.add(theme);
-const updateTheme = newTheme => {
+const updateTheme = (newTheme) => {
   document.body.classList.remove(theme);
   theme = newTheme;
   document.body.classList.add(theme);
@@ -77,19 +77,19 @@ function showSnackbar(message, action) {
   snackbar.innerHTML = action ? `${message} <span onclick="${action}" style="cursor: pointer; text-decoration: underline;">Undo</span>` : message;
   snackbar.classList.add('show');
   setTimeout(() => snackbar.classList.remove('show'), 5000);
-}
+};
 
 // Parse CSV File
 function parseCSV(text) {
   try {
     const lines = text.trim().split('\n');
     if (lines.length === 0) throw new Error('No data in CSV');
-    headers = lines[0].split(',').map(h => h.trim().replace(/[^a-zA-Z0-9\s]/g, ''));
+    headers = lines[0].split(',').map((h) => h.trim().replace(/[^a-zA-Z0-9\s]/g, ''));
     if (headers.length === 0) throw new Error('No headers found');
-    rows = lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
+    rows = lines.slice(1).map((line) => {
+      const values = line.split(',').map((v) => v.trim());
       const row = {};
-      headers.forEach((h, i) => row[h] = values[i] || '');
+      headers.forEach((h, i) => (row[h] = values[i] || ''));
       return row;
     });
     sessionStorage.setItem('headers', JSON.stringify(headers));
@@ -99,15 +99,15 @@ function parseCSV(text) {
     showSnackbar(`Error parsing CSV: ${error.message}`);
     console.error('Parse CSV Error:', error);
     return false;
-  }
-}
+  };
+};
 
 // Parse Excel File
 async function parseExcel(file, append = false) {
   if (!file || (!file.name.endsWith('.xlsx') && !file.name.endsWith('.csv'))) {
     showSnackbar('Error: Only .xlsx or .csv files are supported.');
     return false;
-  }
+  };
   try {
     if (file.name.endsWith('.csv')) {
       const text = await file.text();
@@ -120,22 +120,22 @@ async function parseExcel(file, append = false) {
       if (!worksheet) {
         showSnackbar('Error: No sheets found.');
         return false;
-      }
-      const firstRow = worksheet.getRow(1).values.slice(1).map(h => String(h || '').trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter(h => h);
+      };
+      const firstRow = worksheet.getRow(1).values.slice(1).map((h) => String(h || '').trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter((h) => h);
       if (firstRow.length === 0) {
         showSnackbar('Error: No valid headers found. Using row indices as headers.');
         headers = worksheet.getRow(1).values.slice(1).map((_, i) => `Column_${i + 1}`);
       } else {
         headers = firstRow;
-      }
+      };
       const headerSet = new Set(headers);
       if (headerSet.size !== headers.length) {
         showSnackbar('Warning: Duplicate headers detected, using unique indices.');
-        headers = headers.map((h, i) => `${h}_${i + 1}`).filter(h => h);
-      }
+        headers = headers.map((h, i) => `${h}_${i + 1}`).filter((h) => h);
+      };
       if (!append) {
         rows = [];
-      }
+      };
       worksheet.eachRow((row, rowNum) => {
         if (rowNum > 1) {
           const rowData = {};
@@ -143,26 +143,25 @@ async function parseExcel(file, append = false) {
             rowData[h] = String(row.values[i + 1] || '');
           });
           rows.push(rowData);
-        }
+        };
       });
       sessionStorage.setItem('headers', JSON.stringify(headers));
       sessionStorage.setItem('rows', JSON.stringify(rows));
       return true;
-    }
+    };
   } catch (error) {
     showSnackbar('Error: Failed to parse file.');
     console.error('Parse Error:', error);
     return false;
-  }
-}
+  };
+};
 
-// Generate Form (No Table)
+// Generate Form
 function generateForm(container = dataForm) {
   container.innerHTML = '';
   headers.forEach((header, index) => {
     const div = document.createElement('div');
-    const inputType = header.toLowerCase().includes('date') ? 'date' :
-                      header.toLowerCase().includes('quantity') || header.toLowerCase().includes('price') ? 'number' : 'text';
+    const inputType = header.toLowerCase().includes('date') ? 'date' : header.toLowerCase().includes('quantity') || header.toLowerCase().includes('price') ? 'number' : 'text';
     div.innerHTML = `
       <label for="${header}">${header}</label>
       <input type="${inputType}" id="${header}" name="${header}" aria-label="${header} input" data-index="${index}" value="${rows[editingIndex]?.[header] || ''}">
@@ -170,7 +169,7 @@ function generateForm(container = dataForm) {
     `;
     container.appendChild(div);
   });
-  container.querySelectorAll('input').forEach(input => {
+  container.querySelectorAll('input').forEach((input) => {
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -180,15 +179,14 @@ function generateForm(container = dataForm) {
           nextInput.focus();
         } else if (currentIndex === headers.length - 1) {
           addRowBtn.focus();
-        }
-      }
+        };
+      };
     });
   });
   const buttons = [addRowBtn, viewRowsBtn, settingsBtn, bulkEditBtn, searchBtn, presetsBtn];
-  buttons.forEach(btn => btn.style.display = 'block');
-}
+  buttons.forEach((btn) => (btn.style.display = 'block'));
+};
 
-// Render Rows (Independent Editing)
 // Render Rows (Independent Editing with Fixed Header Updates)
 function renderRows(container, data = rows, editable = true) {
   if (!container) return;
@@ -196,7 +194,7 @@ function renderRows(container, data = rows, editable = true) {
   if (data.length === 0) {
     container.innerHTML = '<p>No rows added yet.</p>';
     return;
-  }
+  };
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
@@ -204,39 +202,38 @@ function renderRows(container, data = rows, editable = true) {
     <tr><th>Col #</th>${headers.map((_, i) => `<th>${i + 1}</th>`).join('')}</tr>
     <tr><th>Row #</th>${headers.map((h, i) => `<th><input type="text" value="${h}" class="header-edit" data-index="${i}" style="width: 100%;"></th>`).join('')}</tr>
   `;
-  thead.querySelectorAll('.header-edit').forEach(input => {
+  thead.querySelectorAll('.header-edit').forEach((input) => {
     input.onchange = (e) => {
       const newValue = e.target.value.trim().replace(/[^a-zA-Z0-9\s]/g, '');
       const index = parseInt(e.target.dataset.index);
       if (newValue && !headers.includes(newValue)) {
         const oldHeader = headers[index];
         lastAction = { type: 'updateHeader', oldHeader, newHeader: newValue, index };
-        // Preserve data by remapping only the affected column
-        rows.forEach(row => {
+        rows.forEach((row) => {
           if (row.hasOwnProperty(oldHeader)) {
-            row[newValue] = row[oldHeader]; // Copy data to new header
-            delete row[oldHeader]; // Remove old header key
+            row[newValue] = row[oldHeader];
+            delete row[oldHeader];
           } else {
-            row[newValue] = ''; // Initialize new header with empty value if not present
-          }
+            row[newValue] = '';
+          };
         });
-        headers[index] = newValue; // Update the header
+        headers[index] = newValue;
         sessionStorage.setItem('headers', JSON.stringify(headers));
         sessionStorage.setItem('rows', JSON.stringify(rows));
         saveSession();
-        generateForm(); // Update form with new header
-        renderRows(container); // Re-render only this panel
+        generateForm();
+        renderRows(container);
         showSnackbar('Header updated!', 'undoAction()');
       } else {
-        e.target.value = headers[index]; // Revert if invalid or duplicate
+        e.target.value = headers[index];
         showSnackbar('Invalid or duplicate header name.');
-      }
+      };
     };
     input.onblur = (e) => {
       if (!e.target.value.trim()) {
         e.target.value = headers[parseInt(e.target.dataset.index)];
         showSnackbar('Header cannot be empty.');
-      }
+      };
     };
     input.parentElement.onclick = (e) => input.focus();
   });
@@ -244,17 +241,17 @@ function renderRows(container, data = rows, editable = true) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${rowIndex + 1}</td>${headers.map((h, colIndex) => `<td><input type="text" value="${row[h] || ''}" data-row="${rowIndex}" data-col="${colIndex}" ${editable ? '' : 'readonly'} style="width: 100%;"></td>`).join('')}`;
     if (editable) {
-      tr.querySelectorAll('input').forEach(input => {
+      tr.querySelectorAll('input').forEach((input) => {
         input.onchange = (e) => {
           const newValue = e.target.value;
           const rowIndex = parseInt(e.target.dataset.row);
           const colIndex = parseInt(e.target.dataset.col);
           const header = headers[colIndex];
           lastAction = { type: 'update', oldRow: { ...rows[rowIndex] }, row: { ...rows[rowIndex] }, index: rowIndex, col: colIndex, newValue };
-          rows[rowIndex][header] = newValue; // Update only the specific cell
+          rows[rowIndex][header] = newValue;
           sessionStorage.setItem('rows', JSON.stringify(rows));
           saveSession();
-          renderRows(container); // Re-render only this panel
+          renderRows(container);
           showSnackbar('Cell updated!', 'undoAction()');
         };
         input.onblur = (e) => {
@@ -265,14 +262,14 @@ function renderRows(container, data = rows, editable = true) {
           e.stopPropagation();
         };
       });
-    }
+    };
     tbody.appendChild(tr);
   });
   table.appendChild(thead);
   table.appendChild(tbody);
   container.innerHTML = '';
   container.appendChild(table);
-}
+};
 
 // Save Session
 let saveTimeout;
@@ -280,7 +277,7 @@ function saveSession() {
   if (isSaving) {
     console.log('Save skipped: already in progress');
     return;
-  }
+  };
   isSaving = true;
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
@@ -290,7 +287,7 @@ function saveSession() {
     const transaction = db.transaction(['sessions'], 'readwrite');
     const store = transaction.objectStore('sessions');
     store.put(session).onsuccess = () => {
-      sessions = sessions.filter(s => s.fileName !== currentFileName).concat(session);
+      sessions = sessions.filter((s) => s.fileName !== currentFileName).concat(session);
       sessionStorage.setItem('headers', JSON.stringify(headers));
       sessionStorage.setItem('rows', JSON.stringify(rows));
       sessionStorage.setItem('currentFileName', currentFileName);
@@ -308,7 +305,7 @@ function saveSession() {
       isSaving = false;
     };
   }, 500);
-}
+};
 
 // Reset State
 function resetState() {
@@ -327,7 +324,7 @@ function resetState() {
   addRowBtn.classList.add('btn-primary');
   updateProgress();
   sessionStorage.clear();
-}
+};
 
 // Export Session
 function exportSession(index) {
@@ -337,27 +334,27 @@ function exportSession(index) {
     showSnackbar('Session exported!');
   } else {
     showSnackbar('Session not found.');
-  }
-}
+  };
+};
 
-// Download File (Fixed Excel Download)
+// Download File
 async function downloadFile(rows, headers, fileName, format = 'xlsx') {
   try {
     if (!rows.length) {
       showSnackbar('No data to download.');
       return false;
-    }
-    const cleanRows = rows.map(row => {
+    };
+    const cleanRows = rows.map((row) => {
       const cleanRow = {};
-      headers.forEach(h => cleanRow[h] = String(row[h] || ''));
+      headers.forEach((h) => (cleanRow[h] = String(row[h] || '')));
       return cleanRow;
     });
     showSnackbar('Downloading...');
     if (format === 'xlsx') {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Sheet1');
-      worksheet.columns = headers.map(h => ({ header: h, key: h }));
-      cleanRows.forEach(row => worksheet.addRow(row));
+      worksheet.columns = headers.map((h) => ({ header: h, key: h }));
+      cleanRows.forEach((row) => worksheet.addRow(row));
       const buffer = await workbook.xlsx.writeBuffer();
       if (!buffer || buffer.byteLength === 0) throw new Error('Empty buffer');
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -369,10 +366,10 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      showSnackbar('Downloaded!');
+      showSnackbar('Downloaded as .xlsx!');
       return true;
     } else if (format === 'csv') {
-      const csv = [headers.join(','), ...cleanRows.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))].join('\n');
+      const csv = [headers.join(','), ...cleanRows.map((row) => headers.map((h) => `"${row[h] || ''}"`).join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -385,7 +382,7 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       showSnackbar('Downloaded!');
       return true;
     } else if (format === 'txt') {
-      const txt = cleanRows.map(row => headers.map(h => row[h] || '').join('\t')).join('\n');
+      const txt = cleanRows.map((row) => headers.map((h) => row[h] || '').join('\t')).join('\n');
       const blob = new Blob([txt], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -400,18 +397,18 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
     } else if (format === 'pdf') {
       const doc = new jsPDF();
       doc.text('Data Export', 10, 10);
-      doc.autoTable({ head: [headers], body: cleanRows.map(row => headers.map(h => row[h] || '')) });
+      doc.autoTable({ head: [headers], body: cleanRows.map((row) => headers.map((h) => row[h] || '')) });
       doc.save(fileName.replace(/\.[^/.]+$/, '') + '.pdf');
       showSnackbar('Downloaded!');
       return true;
-    }
+    };
     return true;
   } catch (error) {
     console.error('Download Error:', error.message, error.stack);
     showSnackbar(`Download failed: ${error.message}`);
     return false;
-  }
-}
+  };
+};
 
 // Undo Action
 function undoAction() {
@@ -419,33 +416,32 @@ function undoAction() {
   if (lastAction.type === 'add') rows.splice(lastAction.index, 1);
   else if (lastAction.type === 'update') {
     rows[lastAction.index][headers[lastAction.col]] = lastAction.oldRow[headers[lastAction.col]];
-  }
-  else if (lastAction.type === 'delete') rows.splice(lastAction.index, 0, lastAction.row);
-  else if (lastAction.type === 'bulk') lastAction.rows.forEach(({ index, oldRow }) => rows[index] = oldRow);
+  } else if (lastAction.type === 'delete') rows.splice(lastAction.index, 0, lastAction.row);
+  else if (lastAction.type === 'bulk') lastAction.rows.forEach(({ index, oldRow }) => (rows[index] = oldRow));
   else if (lastAction.type === 'addAfter') rows.splice(lastAction.index + 1, 1);
   else if (lastAction.type === 'addColumn') {
     headers.splice(lastAction.index + 1, 1);
-    rows.forEach(row => delete row[lastAction.newHeader]);
+    rows.forEach((row) => delete row[lastAction.newHeader]);
   } else if (lastAction.type === 'deleteColumn') {
     headers.splice(lastAction.index, 1);
-    rows.forEach(row => delete row[lastAction.header]);
+    rows.forEach((row) => delete row[lastAction.header]);
   } else if (lastAction.type === 'updateHeader') {
     headers[lastAction.index] = lastAction.oldHeader;
-    rows.forEach(row => {
+    rows.forEach((row) => {
       row[lastAction.oldHeader] = row[lastAction.newHeader];
       delete row[lastAction.newHeader];
     });
   } else if (lastAction.type === 'border') {
     // No undo for borders yet (can be expanded if needed)
-  }
+  };
   sessionStorage.setItem('rows', JSON.stringify(rows));
   sessionStorage.setItem('headers', JSON.stringify(headers));
-  generateForm(); // Update form
-  renderRows(rowTable); // Update main table if visible
+  generateForm();
+  renderRows(rowTable);
   saveSession();
   showSnackbar('Action undone!');
   lastAction = null;
-}
+};
 
 // Offline Queue
 function queueAction(action) {
@@ -453,34 +449,34 @@ function queueAction(action) {
   const transaction = db.transaction(['offlineQueue'], 'readwrite');
   const store = transaction.objectStore('offlineQueue');
   store.add(action);
-}
+};
 
 async function syncOfflineQueue() {
   const transaction = db.transaction(['offlineQueue'], 'readwrite');
   const store = transaction.objectStore('offlineQueue');
-  store.getAll().onsuccess = e => {
+  store.getAll().onsuccess = (e) => {
     offlineQueue = e.target.result;
     if (offlineQueue.length === 0) return;
-    offlineQueue.forEach(action => {
+    offlineQueue.forEach((action) => {
       if (action.type === 'add') rows.push(action.row);
       else if (action.type === 'update') rows[action.index][headers[action.col]] = action.newValue;
       else if (action.type === 'delete') rows.splice(action.index, 1);
       else if (action.type === 'addAfter') rows.splice(action.index + 1, 0, action.row);
       else if (action.type === 'addColumn') {
         headers.splice(action.index + 1, 0, action.newHeader);
-        rows.forEach(row => row[action.newHeader] = '');
+        rows.forEach((row) => (row[action.newHeader] = ''));
       } else if (action.type === 'deleteColumn') {
         headers.splice(action.index, 1);
-        rows.forEach(row => delete row[action.header]);
+        rows.forEach((row) => delete row[action.header]);
       } else if (action.type === 'updateHeader') {
         headers[action.index] = action.oldHeader;
-        rows.forEach(row => {
+        rows.forEach((row) => {
           row[action.oldHeader] = row[action.newHeader];
           delete row[action.newHeader];
         });
       } else if (action.type === 'border') {
         // Handle border update if implemented
-      }
+      };
     });
     sessionStorage.setItem('rows', JSON.stringify(rows));
     sessionStorage.setItem('headers', JSON.stringify(headers));
@@ -488,7 +484,7 @@ async function syncOfflineQueue() {
     store.clear();
     offlineQueue = [];
   };
-}
+};
 
 // Update Progress
 let progressTimeout;
@@ -497,7 +493,7 @@ function updateProgress() {
   progressTimeout = setTimeout(() => {
     fileNameSpan.textContent = currentFileName ? `${currentFileName} (${rows.length} rows)` : '';
   }, 100);
-}
+};
 
 // Slide-Up Panels
 function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen) {
@@ -534,7 +530,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     } else {
       parent.appendChild(panel);
       console.warn(`No .container found in ${parent.id}, appending panel directly to ${parent.id}`);
-    }
+    };
     panel.querySelector('.close-panel-btn').onclick = () => {
       panel.classList.remove('show');
       if (parent === dataEntryScreen) {
@@ -545,7 +541,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
         bulkEditBtn.style.display = 'block';
         searchBtn.style.display = 'block';
         presetsBtn.style.display = 'block';
-      }
+      };
     };
     const dropdown = panel.querySelector('.action-dropdown');
     const borderSubOptions = panel.querySelector('.border-sub-options');
@@ -567,16 +563,16 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
               saveSession();
               renderRows(panel.querySelector('.panel-content'));
               showSnackbar('Row deleted!', 'undoAction()');
-            }
+            };
           } else {
             showSnackbar('Invalid row number.');
-          }
+          };
           e.target.value = '';
         } else if (action === 'addAfter') {
-          const rowNum = prompt('Enter row number to add after (1 to ' + rows.length + '):');
-          if (rowNum && !isNaN(rowNum) && rowNum >= 0 && rowNum <= rows.length) {
+          const rowNum = prompt('Enter row number to add after (0 to ' + rows.length + '): 0 for start');
+          if (rowNum !== null && !isNaN(rowNum) && rowNum >= 0 && rowNum <= rows.length) {
             const newRow = {};
-            headers.forEach(h => newRow[h] = '');
+            headers.forEach((h) => (newRow[h] = ''));
             lastAction = { type: 'addAfter', row: newRow, index: rowNum };
             rows.splice(rowNum, 0, newRow);
             sessionStorage.setItem('rows', JSON.stringify(rows));
@@ -585,20 +581,20 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
           } else {
             showSnackbar('Invalid row number.');
-          }
+          };
           e.target.value = '';
         } else if (action === 'addColumn') {
-          const colNum = prompt('Enter column number to add after (refer to Col # row) (1 to ' + headers.length + '):');
+          const colNum = prompt('Enter column number to add after (0 to ' + headers.length + '): 0 for start');
           const colName = prompt('Enter column name:');
-          if (colNum && !isNaN(colNum) && colNum >= 0 && colNum <= headers.length && colName && colName.trim()) {
+          if (colNum !== null && !isNaN(colNum) && colNum >= 0 && colNum <= headers.length && colName && colName.trim()) {
             const newHeader = colName.trim().replace(/[^a-zA-Z0-9\s]/g, '');
             if (headers.includes(newHeader)) {
               showSnackbar('Column name already exists.');
               return;
-            }
+            };
             lastAction = { type: 'addColumn', index: colNum, newHeader };
             headers.splice(colNum, 0, newHeader);
-            rows.forEach(row => row[newHeader] = '');
+            rows.forEach((row) => (row[newHeader] = ''));
             sessionStorage.setItem('headers', JSON.stringify(headers));
             sessionStorage.setItem('rows', JSON.stringify(rows));
             saveSession();
@@ -607,7 +603,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             showSnackbar('Column added!', 'undoAction()');
           } else {
             showSnackbar('Invalid column number or name.');
-          }
+          };
           e.target.value = '';
         } else if (action === 'deleteColumn') {
           const colNum = prompt('Enter column number to delete (1 to ' + headers.length + '):');
@@ -616,20 +612,20 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             if (confirm('Are you sure you want to delete column ' + header + '?')) {
               lastAction = { type: 'deleteColumn', index: colNum - 1, header };
               headers.splice(colNum - 1, 1);
-              rows.forEach(row => delete row[header]);
+              rows.forEach((row) => delete row[header]);
               sessionStorage.setItem('headers', JSON.stringify(headers));
               sessionStorage.setItem('rows', JSON.stringify(rows));
               saveSession();
               generateForm();
               renderRows(panel.querySelector('.panel-content'));
               showSnackbar('Column deleted!', 'undoAction()');
-            }
+            };
           } else {
             showSnackbar('Invalid column number.');
-          }
+          };
           e.target.value = '';
-        }
-      }
+        };
+      };
     };
     borderSubOptions.onchange = (e) => {
       const borderType = e.target.value;
@@ -639,10 +635,10 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
       showSnackbar(`Borders set to ${borderType}!`, 'undoAction()');
     };
     let startY = 0;
-    panel.addEventListener('touchstart', e => {
+    panel.addEventListener('touchstart', (e) => {
       startY = e.touches[0].clientY;
     });
-    panel.addEventListener('touchend', e => {
+    panel.addEventListener('touchend', (e) => {
       const endY = e.changedTouches[0].clientY;
       if (endY - startY > 100) {
         panel.classList.remove('show');
@@ -654,10 +650,10 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
           bulkEditBtn.style.display = 'block';
           searchBtn.style.display = 'block';
           presetsBtn.style.display = 'block';
-        }
-      }
+        };
+      };
     });
-  }
+  };
   const content = panel.querySelector('.panel-content');
   content.innerHTML = '';
   contentGenerator(content);
@@ -671,15 +667,15 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     bulkEditBtn.style.display = 'none';
     searchBtn.style.display = 'none';
     presetsBtn.style.display = 'none';
-  }
-}
+  };
+};
 
 // Apply Borders
 function applyBorder(borderType, container) {
   const table = container.querySelector('table');
   if (!table) return;
   const cells = table.querySelectorAll('th, td');
-  cells.forEach(cell => {
+  cells.forEach((cell) => {
     if (borderType === 'all') {
       cell.style.border = '1px solid var(--border)';
     } else if (borderType === 'none') {
@@ -688,15 +684,15 @@ function applyBorder(borderType, container) {
       cell.style.border = 'none';
       if (cell.parentElement.rowIndex === 0 || cell.cellIndex === 0 || cell.parentElement.rowIndex === table.rows.length - 1 || cell.cellIndex === table.rows[0].cells.length - 1) {
         cell.style.border = '1px solid var(--border)';
-      }
-    }
+      };
+    };
   });
   renderRows(container);
-}
+};
 
 // Create Template
 function createTemplatePanel() {
-  createSlidePanel('template-panel', 'Create Template 📋', content => {
+  createSlidePanel('template-panel', 'Create Template 📋', (content) => {
     const form = document.createElement('form');
     form.id = 'template-form';
     form.innerHTML = `
@@ -729,7 +725,7 @@ function createTemplatePanel() {
       if (headerCount > 1) form.querySelectorAll('.remove-header')[0].style.display = 'block';
     };
 
-    form.addEventListener('click', e => {
+    form.addEventListener('click', (e) => {
       if (e.target.classList.contains('remove-header')) {
         e.target.parentElement.remove();
         headerCount--;
@@ -744,17 +740,17 @@ function createTemplatePanel() {
           inp.setAttribute('aria-label', `Header ${i + 1} input`);
         });
         if (inputs.length === 1) inputs[0].querySelector('.remove-header').style.display = 'none';
-      }
+      };
     });
 
-    form.onsubmit = e => {
+    form.onsubmit = (e) => {
       e.preventDefault();
       const inputs = form.querySelectorAll('#header-inputs input');
-      const newHeaders = Array.from(inputs).map(input => input.value.trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter(h => h);
+      const newHeaders = Array.from(inputs).map((input) => input.value.trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter((h) => h);
       const headerSet = new Set(newHeaders);
       let valid = true;
 
-      inputs.forEach(input => {
+      inputs.forEach((input) => {
         const errorDiv = input.nextElementSibling.nextElementSibling;
         errorDiv.style.display = 'none';
         errorDiv.textContent = '';
@@ -771,10 +767,10 @@ function createTemplatePanel() {
             errorDiv.textContent = 'Duplicate header';
             errorDiv.style.display = 'block';
             valid = false;
-          }
+          };
         });
         showSnackbar('Error: Duplicate headers detected.');
-      }
+      };
 
       if (valid) {
         headers = newHeaders;
@@ -792,14 +788,14 @@ function createTemplatePanel() {
         hideAllPanels();
         showSnackbar('Template created!');
         sessionStorage.setItem('currentPage', 'data-entry');
-      }
+      };
     };
   }, homeScreen);
-}
+};
 
 // Create CSV Panel
 function createCsvPanel() {
-  createSlidePanel('create-csv-panel', 'Create CSV 📝', content => {
+  createSlidePanel('create-csv-panel', 'Create CSV 📝', (content) => {
     const textarea = document.createElement('textarea');
     textarea.placeholder = 'Enter or paste CSV content (e.g., header1,header2\nvalue1,value2)';
     textarea.rows = 10;
@@ -825,19 +821,19 @@ function createCsvPanel() {
         panel.classList.remove('show');
       } else {
         showSnackbar('Please enter CSV content.');
-      }
+      };
     };
     content.appendChild(saveBtn);
   }, homeScreen);
-}
+};
 
 // Your Works Panel
 function showYourWorksPanel() {
-  createSlidePanel('your-works-panel', 'Your Works 📂', content => {
+  createSlidePanel('your-works-panel', 'Your Works 📂', (content) => {
     if (sessions.length === 0) {
       content.innerHTML = '<p>No sessions yet.</p>';
       return;
-    }
+    };
     sessions.forEach((session, index) => {
       const card = document.createElement('div');
       card.className = 'work-card';
@@ -852,7 +848,7 @@ function showYourWorksPanel() {
       content.appendChild(card);
     });
   }, homeScreen);
-}
+};
 
 function deleteSession(index) {
   if (confirm('Are you sure you want to delete ' + sessions[index].fileName + '? This action cannot be undone.')) {
@@ -863,26 +859,26 @@ function deleteSession(index) {
     store.delete(fileName);
     showYourWorksPanel();
     showSnackbar('Session deleted!');
-  }
-}
+  };
+};
 
 // Preset Functions
 function applyPreset(i) {
   const preset = presets[i];
-  headers.forEach(h => {
+  headers.forEach((h) => {
     const input = dataForm.querySelector(`[name="${h}"]`);
     if (input) input.value = preset[h] || '';
   });
   hideAllPanels();
   showSnackbar('Preset applied!');
-}
+};
 
 function deletePreset(i) {
   presets.splice(i, 1);
   localStorage.setItem('presets', JSON.stringify(presets));
   showSnackbar('Preset deleted!');
   renderPresets();
-}
+};
 
 function renderPresets(container) {
   container.innerHTML = presets.length ? '' : '<p>No presets yet.</p>';
@@ -890,7 +886,7 @@ function renderPresets(container) {
     const div = document.createElement('div');
     div.className = 'preset-item';
     div.innerHTML = `
-      <span>${Object.values(p).filter(v => v).join(', ')}</span>
+      <span>${Object.values(p).filter((v) => v).join(', ')}</span>
       <div>
         <button class="btn btn-primary" onclick="applyPreset(${i})" aria-label="Apply preset ${i + 1}">Apply ✅</button>
         <button class="btn btn-secondary" onclick="deletePreset(${i})" aria-label="Delete preset ${i + 1}">Delete ❌</button>
@@ -898,7 +894,7 @@ function renderPresets(container) {
     `;
     container.appendChild(div);
   });
-}
+};
 
 // Event Listeners
 startNewBtn.addEventListener('click', () => {
@@ -935,7 +931,7 @@ fileInput.addEventListener('change', async () => {
     saveSession();
     showSnackbar('File loaded and converted to Excel!');
     sessionStorage.setItem('currentPage', 'data-entry');
-  }
+  };
 });
 
 backBtn.addEventListener('click', () => {
@@ -950,7 +946,7 @@ addRowBtn.addEventListener('click', () => {
   const formData = new FormData(dataForm);
   const row = {};
   let valid = true;
-  headers.forEach(header => {
+  headers.forEach((header) => {
     const value = formData.get(header);
     row[header] = value ? String(value).trim() : '';
     if (validationRules[header] && value && !validationRules[header](value)) {
@@ -959,7 +955,7 @@ addRowBtn.addEventListener('click', () => {
       errorDiv.textContent = `Invalid ${header}`;
       errorDiv.style.display = 'block';
       valid = false;
-    }
+    };
   });
   if (valid) {
     if (editingIndex !== null) {
@@ -974,16 +970,21 @@ addRowBtn.addEventListener('click', () => {
       lastAction = { type: 'add', row, index: rows.length };
       rows.push(row);
       showSnackbar('Row added!', 'undoAction()');
-    }
+      // Clear form fields after adding a new row
+      headers.forEach((header) => {
+        const input = dataForm.querySelector(`[name="${header}"]`);
+        if (input) input.value = '';
+      });
+    };
     sessionStorage.setItem('rows', JSON.stringify(rows));
     if (navigator.onLine) {
       saveSession();
     } else {
       queueAction(lastAction);
       showSnackbar('Action queued offline.');
-    }
+    };
     updateProgress();
-  }
+  };
 });
 
 downloadBtn.addEventListener('click', async () => {
@@ -997,33 +998,33 @@ downloadBtn.addEventListener('click', async () => {
       } else {
         const success = await downloadFile(rows, headers, fileName, format);
         if (success) showSnackbar('Downloaded!');
-      }
+      };
     } else {
       showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
-    }
-  }
+    };
+  };
 });
 
 viewRowsBtn.addEventListener('click', () => {
-  createSlidePanel('rows-panel', 'Your Rows 👀', content => {
-    renderRows(content, rows, true); // Ensure editable is true
+  createSlidePanel('rows-panel', 'Your Rows 👀', (content) => {
+    renderRows(content, rows, true);
   });
   sessionStorage.setItem('currentPage', 'data-entry');
 });
 
 presetsBtn.addEventListener('click', () => {
-  createSlidePanel('presets-panel', 'Presets ⭐', content => {
+  createSlidePanel('presets-panel', 'Presets ⭐', (content) => {
     const form = document.createElement('form');
     generateForm(form);
     const saveBtn = document.createElement('button');
     saveBtn.className = 'btn btn-primary btn-full';
     saveBtn.textContent = 'Save Preset ⭐';
     saveBtn.type = 'button';
-    saveBtn.onclick = e => {
+    saveBtn.onclick = (e) => {
       e.preventDefault();
       const formData = new FormData(form);
       const preset = {};
-      headers.forEach(h => {
+      headers.forEach((h) => {
         const value = formData.get(h);
         preset[h] = value ? String(value).trim() : '';
       });
@@ -1043,7 +1044,7 @@ presetsBtn.addEventListener('click', () => {
 });
 
 searchBtn.addEventListener('click', () => {
-  createSlidePanel('search-panel', 'Search Rows 🔍', content => {
+  createSlidePanel('search-panel', 'Search Rows 🔍', (content) => {
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search rows...';
@@ -1055,7 +1056,7 @@ searchBtn.addEventListener('click', () => {
     content.appendChild(resultDiv);
     searchInput.oninput = () => {
       const term = searchInput.value.toLowerCase();
-      const filtered = rows.filter(row => headers.some(h => String(row[h]).toLowerCase().includes(term)));
+      const filtered = rows.filter((row) => headers.some((h) => String(row[h]).toLowerCase().includes(term)));
       renderRows(resultDiv, filtered, true);
     };
   });
@@ -1063,7 +1064,7 @@ searchBtn.addEventListener('click', () => {
 });
 
 bulkEditBtn.addEventListener('click', () => {
-  createSlidePanel('bulk-edit-panel', 'Bulk Edit ✏️', content => {
+  createSlidePanel('bulk-edit-panel', 'Bulk Edit ✏️', (content) => {
     const selectedRows = [];
     const tableDiv = document.createElement('div');
     tableDiv.id = 'bulk-select-table';
@@ -1084,20 +1085,20 @@ bulkEditBtn.addEventListener('click', () => {
     applyBtn.className = 'btn btn-primary btn-full';
     applyBtn.textContent = 'Apply Changes ✅';
     applyBtn.type = 'button';
-    applyBtn.onclick = e => {
+    applyBtn.onclick = (e) => {
       e.preventDefault();
       if (!selectedRows.length) {
         showSnackbar('No rows selected.');
         return;
-      }
+      };
       const formData = new FormData(form);
       const changes = {};
-      headers.forEach(h => {
+      headers.forEach((h) => {
         const value = formData.get(h);
         if (value) changes[h] = value;
       });
-      lastAction = { type: 'bulk', rows: selectedRows.map(i => ({ index: i, oldRow: { ...rows[i] } })) };
-      selectedRows.forEach(i => Object.assign(rows[i], changes));
+      lastAction = { type: 'bulk', rows: selectedRows.map((i) => ({ index: i, oldRow: { ...rows[i] } })) };
+      selectedRows.forEach((i) => Object.assign(rows[i], changes));
       sessionStorage.setItem('rows', JSON.stringify(rows));
       renderRows(tableDiv);
       saveSession();
@@ -1112,9 +1113,9 @@ bulkEditBtn.addEventListener('click', () => {
 });
 
 settingsBtn.addEventListener('click', () => {
-  createSlidePanel('settings-panel', 'Settings ⚙️', content => {
+  createSlidePanel('settings-panel', 'Settings ⚙️', (content) => {
     const validationForm = document.createElement('form');
-    headers.forEach(h => {
+    headers.forEach((h) => {
       const div = document.createElement('div');
       div.innerHTML = `
         <label for="rule-${h}">${h} Rule</label>
@@ -1129,11 +1130,11 @@ settingsBtn.addEventListener('click', () => {
     const saveRulesBtn = document.createElement('button');
     saveRulesBtn.className = 'btn btn-primary btn-full';
     saveRulesBtn.textContent = 'Save Rules ✅';
-    saveRulesBtn.onclick = e => {
+    saveRulesBtn.onclick = (e) => {
       e.preventDefault();
       const formData = new FormData(validationForm);
       validationRules = {};
-      headers.forEach(h => {
+      headers.forEach((h) => {
         const rule = formData.get(h);
         if (rule === 'positive') validationRules[h] = positiveRule;
         else if (rule === 'notFuture') validationRules[h] = notFutureRule;
@@ -1154,7 +1155,7 @@ settingsBtn.addEventListener('click', () => {
     const saveThemeBtn = document.createElement('button');
     saveThemeBtn.className = 'btn btn-primary btn-full';
     saveThemeBtn.textContent = 'Save Theme ✅';
-    saveThemeBtn.onclick = e => {
+    saveThemeBtn.onclick = (e) => {
       e.preventDefault();
       updateTheme(themeForm.querySelector('#theme').value);
       showSnackbar('Theme updated!');
@@ -1172,8 +1173,8 @@ settingsBtn.addEventListener('click', () => {
           saveSession();
           showSnackbar('Rows imported!');
           importInput.value = '';
-        }
-      }
+        };
+      };
     };
     const importBtn = document.createElement('button');
     importBtn.className = 'btn btn-primary btn-full';
@@ -1190,23 +1191,54 @@ settingsBtn.addEventListener('click', () => {
 
 function positiveRule(value) {
   return !isNaN(value) && Number(value) > 0;
-}
+};
 
 function notFutureRule(value) {
   return new Date(value) <= new Date();
-}
+};
 
 // Initialize
-updateProgress();
-rowTable.style.display = 'none'; // Ensure table is hidden by default
-if (currentPage === 'data-entry' && headers.length > 0) {
-  homeScreen.style.display = 'none';
-  dataEntryScreen.style.display = 'block';
-  generateForm();
-} else {
-  homeScreen.style.display = 'block';
-  dataEntryScreen.style.display = 'none';
-}
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service Worker Error:', err));
-}
+try {
+  updateProgress();
+  rowTable.style.display = 'none';
+  if (currentPage === 'data-entry' && headers.length > 0) {
+    homeScreen.style.display = 'none';
+    dataEntryScreen.style.display = 'block';
+    generateForm();
+  } else {
+    homeScreen.style.display = 'block';
+    dataEntryScreen.style.display = 'none';
+  };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch((err) => console.error('Service Worker Error:', err));
+  };
+} catch (error) {
+  console.error('Initialization Error:', error);
+};
+
+// Missing Functions
+function hideAllPanels() {
+  document.querySelectorAll('.slide-panel').forEach((panel) => panel.classList.remove('show'));
+};
+
+function resumeSession(index) {
+  const session = sessions[index];
+  if (session) {
+    headers = session.headers;
+    rows = session.rows;
+    currentFileName = session.fileName;
+    sessionStorage.setItem('headers', JSON.stringify(headers));
+    sessionStorage.setItem('rows', JSON.stringify(rows));
+    sessionStorage.setItem('currentFileName', currentFileName);
+    updateProgress();
+    generateForm();
+    homeScreen.style.display = 'none';
+    dataEntryScreen.style.display = 'block';
+    hideAllPanels();
+    saveSession();
+    showSnackbar('Session resumed!');
+    sessionStorage.setItem('currentPage', 'data-entry');
+  } else {
+    showSnackbar('Session not found.');
+  };
+};
