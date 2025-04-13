@@ -6,6 +6,7 @@
   <title>Excel Data Entry</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Added Font Awesome -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.13/jspdf.plugin.autotable.min.js"></script>
@@ -13,11 +14,16 @@
 <body>
   <div id="home-screen">
     <div class="container">
-      <h1>Excel Data Entry</h1>
-      <button id="start-new" class="btn btn-primary" aria-label="Start new data entry">Start New Entry 📝</button>
-      <button id="create-template" class="btn btn-primary" aria-label="Create new template">Create Template 📋</button>
-      <button id="create-csv" class="btn btn-primary" aria-label="Create new CSV">Create CSV 📝</button>
-      <button id="your-works-btn" class="btn btn-primary" aria-label="View your works">Your Works 📂</button>
+      <div class="welcome-card">
+        <h1>Welcome to Excel Data Entry 📊</h1>
+        <p>Easily manage your data with a simple and powerful interface. Upload Excel/CSV files, create templates, and more!</p>
+        <div class="button-container">
+          <button id="start-new" class="btn btn-primary" aria-label="Start new data entry"><i class="fas fa-upload"></i> Start New</button>
+          <button id="create-template" class="btn btn-primary" aria-label="Create new template"><i class="fas fa-file-alt"></i> Create Template</button>
+          <button id="create-csv" class="btn btn-primary" aria-label="Create new CSV"><i class="fas fa-table"></i> Create CSV</button>
+          <button id="your-works-btn" class="btn btn-primary" aria-label="View your works"><i class="fas fa-folder"></i> Your Works</button>
+        </div>
+      </div>
     </div>
   </div>
   <div id="data-entry-screen" style="display: none;">
@@ -43,5 +49,6 @@
   </div>
   <script src="app.js" defer></script>
   <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f7762fbcb50617',t:'MTc0NDUxMDU4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f8b8549e89bffe',t:'MTc0NDUyMzc4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>

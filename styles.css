@@ -81,19 +81,24 @@ h2 {
   margin: 12px 0;
   background: var(--btn-bg);
   color: white;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s ease; /* Added transform transition */
   display: flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;
 }
 
-.btn-primary {
-  background: var(--btn-bg);
+.btn:hover {
+  background: var(--btn-hover);
+  transform: translateY(-2px); /* Added lift effect */
 }
 
-.btn-primary:active {
-  background: var(--btn-hover);
+.btn:active {
+  transform: translateY(0); /* Reset on click */
+}
+
+.btn-primary {
+  background: var(--btn-bg);
 }
 
 .btn-update {
@@ -435,6 +440,40 @@ tr:active {
   margin-top: 15px;
 }
 
+/* Home Screen Enhancements */
+.welcome-card {
+  background: var(--panel-bg);
+  border-radius: 10px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+.welcome-card h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  color: var(--btn-bg);
+}
+
+.welcome-card p {
+  font-size: 1.1rem;
+  margin-bottom: 30px;
+  color: var(--text);
+}
+
+.button-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.btn i {
+  margin-right: 8px; /* Space between icon and text */
+}
+
 /* Snackbar */
 #snackbar {
   visibility: hidden;
@@ -505,6 +544,22 @@ tr:active {
   .btn {
     font-size: 1rem;
     min-height: 48px;
+  }
+
+  .welcome-card {
+    padding: 20px;
+  }
+
+  .welcome-card h1 {
+    font-size: 2rem;
+  }
+
+  .welcome-card p {
+    font-size: 1rem;
+  }
+
+  .button-container .btn {
+    width: 100%; /* Full width on small screens */
   }
 
   input,
