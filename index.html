@@ -6,13 +6,19 @@
   <title>Excel Data Entry</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.13/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
   <div id="home-screen">
-    <h1>Excel Data Entry</h1>
-    <button id="start-new" class="btn btn-primary" aria-label="Start new data entry">Start New Entry 📝</button>
-    <button id="create-template" class="btn btn-primary" aria-label="Create new template">Create Template 📋</button>
-    <button id="your-works-btn" class="btn btn-primary" aria-label="View your works">Your Works 📂</button>
+    <div class="container">
+      <h1>Excel Data Entry</h1>
+      <button id="start-new" class="btn btn-primary" aria-label="Start new data entry">Start New Entry 📝</button>
+      <button id="create-template" class="btn btn-primary" aria-label="Create new template">Create Template 📋</button>
+      <button id="create-csv" class="btn btn-primary" aria-label="Create new CSV">Create CSV 📝</button>
+      <button id="your-works-btn" class="btn btn-primary" aria-label="View your works">Your Works 📂</button>
+    </div>
   </div>
   <div id="data-entry-screen" style="display: none;">
     <header class="sticky-header">
@@ -22,7 +28,7 @@
       <span id="save-status"></span>
     </header>
     <div class="container">
-      <input type="file" id="fileInput" accept=".xlsx" style="display: none;" aria-label="Upload Excel file" />
+      <input type="file" id="fileInput" accept=".xlsx,.csv" style="display: none;" aria-label="Upload Excel or CSV file" />
       <form id="data-form" aria-label="Data entry form"></form>
       <div id="row-table" style="display: none;"></div>
       <button id="add-row" class="btn btn-primary btn-full add-row-sticky" aria-label="Add or update row">Add Row ➕</button>
@@ -35,9 +41,7 @@
       <input type="hidden" id="download-options" style="display: none;" />
     </div>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.13/jspdf.plugin.autotable.min.js"></script>
   <script src="app.js" defer></script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f7762fbcb50617',t:'MTc0NDUxMDU4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
