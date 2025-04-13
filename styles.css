@@ -81,7 +81,7 @@ h2 {
   margin: 12px 0;
   background: var(--btn-bg);
   color: white;
-  transition: background 0.2s, transform 0.2s ease; /* Added transform transition */
+  transition: background 0.2s, transform 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -90,11 +90,11 @@ h2 {
 
 .btn:hover {
   background: var(--btn-hover);
-  transform: translateY(-2px); /* Added lift effect */
+  transform: translateY(-2px);
 }
 
 .btn:active {
-  transform: translateY(0); /* Reset on click */
+  transform: translateY(0);
 }
 
 .btn-primary {
@@ -471,7 +471,7 @@ tr:active {
 }
 
 .btn i {
-  margin-right: 8px; /* Space between icon and text */
+  margin-right: 8px;
 }
 
 /* Snackbar */
@@ -559,7 +559,7 @@ tr:active {
   }
 
   .button-container .btn {
-    width: 100%; /* Full width on small screens */
+    width: 100%;
   }
 
   input,

@@ -1,6 +1,6 @@
 // Use global ExcelJS from CDN
 const ExcelJS = window.ExcelJS;
-const jsPDF = window.jspdf.jsPDF; // Added for PDF support
+const jsPDF = window.jspdf.jsPDF;
 
 // State
 let headers = JSON.parse(sessionStorage.getItem('headers')) || [];
@@ -24,6 +24,8 @@ const startNewBtn = document.getElementById('start-new');
 const createTemplateBtn = document.getElementById('create-template');
 const createCsvBtn = document.getElementById('create-csv');
 const yourWorksBtn = document.getElementById('your-works-btn');
+const settingsBtn = document.getElementById('settings-btn'); // Now on home screen
+const themeToggleBtn = document.getElementById('theme-toggle-btn'); // New toggle button
 const backBtn = document.getElementById('back-btn');
 const downloadBtn = document.getElementById('download-btn');
 const dataForm = document.getElementById('data-form');
@@ -36,7 +38,6 @@ const viewRowsBtn = document.getElementById('view-rows-btn');
 const presetsBtn = document.getElementById('presets-btn');
 const searchBtn = document.getElementById('search-btn');
 const bulkEditBtn = document.getElementById('bulk-edit-btn');
-const settingsBtn = document.getElementById('settings-btn');
 
 // IndexedDB
 let db;
@@ -70,6 +71,10 @@ const updateTheme = (newTheme) => {
   theme = newTheme;
   document.body.classList.add(theme);
   localStorage.setItem('theme', theme);
+  // Update toggle button icon
+  if (themeToggleBtn) {
+    themeToggleBtn.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
+  }
 };
 
 // Show Snackbar
@@ -99,15 +104,15 @@ function parseCSV(text) {
     showSnackbar(`Error parsing CSV: ${error.message}`);
     console.error('Parse CSV Error:', error);
     return false;
-  };
-};
+  }
+}
 
 // Parse Excel File
 async function parseExcel(file, append = false) {
   if (!file || (!file.name.endsWith('.xlsx') && !file.name.endsWith('.csv'))) {
     showSnackbar('Error: Only .xlsx or .csv files are supported.');
     return false;
-  };
+  }
   try {
     if (file.name.endsWith('.csv')) {
       const text = await file.text();
@@ -120,22 +125,22 @@ async function parseExcel(file, append = false) {
       if (!worksheet) {
         showSnackbar('Error: No sheets found.');
         return false;
-      };
+      }
       const firstRow = worksheet.getRow(1).values.slice(1).map((h) => String(h || '').trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter((h) => h);
       if (firstRow.length === 0) {
         showSnackbar('Error: No valid headers found. Using row indices as headers.');
         headers = worksheet.getRow(1).values.slice(1).map((_, i) => `Column_${i + 1}`);
       } else {
         headers = firstRow;
-      };
+      }
       const headerSet = new Set(headers);
       if (headerSet.size !== headers.length) {
         showSnackbar('Warning: Duplicate headers detected, using unique indices.');
         headers = headers.map((h, i) => `${h}_${i + 1}`).filter((h) => h);
-      };
+      }
       if (!append) {
         rows = [];
-      };
+      }
       worksheet.eachRow((row, rowNum) => {
         if (rowNum > 1) {
           const rowData = {};
@@ -143,18 +148,18 @@ async function parseExcel(file, append = false) {
             rowData[h] = String(row.values[i + 1] || '');
           });
           rows.push(rowData);
-        };
+        }
       });
       sessionStorage.setItem('headers', JSON.stringify(headers));
       sessionStorage.setItem('rows', JSON.stringify(rows));
       return true;
-    };
+    }
   } catch (error) {
     showSnackbar('Error: Failed to parse file.');
     console.error('Parse Error:', error);
     return false;
-  };
-};
+  }
+}
 
 // Generate Form
 function generateForm(container = dataForm) {
@@ -179,22 +184,22 @@ function generateForm(container = dataForm) {
           nextInput.focus();
         } else if (currentIndex === headers.length - 1) {
           addRowBtn.focus();
-        };
-      };
+        }
+      }
     });
   });
-  const buttons = [addRowBtn, viewRowsBtn, settingsBtn, bulkEditBtn, searchBtn, presetsBtn];
+  const buttons = [addRowBtn, viewRowsBtn, bulkEditBtn, searchBtn, presetsBtn];
   buttons.forEach((btn) => (btn.style.display = 'block'));
-};
+}
 
-// Render Rows (Independent Editing with Fixed Header Updates)
+// Render Rows
 function renderRows(container, data = rows, editable = true) {
   if (!container) return;
   container.style.display = data.length ? 'block' : 'none';
   if (data.length === 0) {
     container.innerHTML = '<p>No rows added yet.</p>';
     return;
-  };
+  }
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
@@ -215,7 +220,7 @@ function renderRows(container, data = rows, editable = true) {
             delete row[oldHeader];
           } else {
             row[newValue] = '';
-          };
+          }
         });
         headers[index] = newValue;
         sessionStorage.setItem('headers', JSON.stringify(headers));
@@ -227,13 +232,13 @@ function renderRows(container, data = rows, editable = true) {
       } else {
         e.target.value = headers[index];
         showSnackbar('Invalid or duplicate header name.');
-      };
+      }
     };
     input.onblur = (e) => {
       if (!e.target.value.trim()) {
         e.target.value = headers[parseInt(e.target.dataset.index)];
         showSnackbar('Header cannot be empty.');
-      };
+      }
     };
     input.parentElement.onclick = (e) => input.focus();
   });
@@ -262,14 +267,14 @@ function renderRows(container, data = rows, editable = true) {
           e.stopPropagation();
         };
       });
-    };
+    }
     tbody.appendChild(tr);
   });
   table.appendChild(thead);
   table.appendChild(tbody);
   container.innerHTML = '';
   container.appendChild(table);
-};
+}
 
 // Save Session
 let saveTimeout;
@@ -277,7 +282,7 @@ function saveSession() {
   if (isSaving) {
     console.log('Save skipped: already in progress');
     return;
-  };
+  }
   isSaving = true;
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
@@ -305,7 +310,7 @@ function saveSession() {
       isSaving = false;
     };
   }, 500);
-};
+}
 
 // Reset State
 function resetState() {
@@ -324,7 +329,7 @@ function resetState() {
   addRowBtn.classList.add('btn-primary');
   updateProgress();
   sessionStorage.clear();
-};
+}
 
 // Export Session
 function exportSession(index) {
@@ -334,8 +339,8 @@ function exportSession(index) {
     showSnackbar('Session exported!');
   } else {
     showSnackbar('Session not found.');
-  };
-};
+  }
+}
 
 // Download File
 async function downloadFile(rows, headers, fileName, format = 'xlsx') {
@@ -343,7 +348,7 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
     if (!rows.length) {
       showSnackbar('No data to download.');
       return false;
-    };
+    }
     const cleanRows = rows.map((row) => {
       const cleanRow = {};
       headers.forEach((h) => (cleanRow[h] = String(row[h] || '')));
@@ -401,14 +406,14 @@ async function downloadFile(rows, headers, fileName, format = 'xlsx') {
       doc.save(fileName.replace(/\.[^/.]+$/, '') + '.pdf');
       showSnackbar('Downloaded!');
       return true;
-    };
+    }
     return true;
   } catch (error) {
     console.error('Download Error:', error.message, error.stack);
     showSnackbar(`Download failed: ${error.message}`);
     return false;
-  };
-};
+  }
+}
 
 // Undo Action
 function undoAction() {
@@ -432,8 +437,8 @@ function undoAction() {
       delete row[lastAction.newHeader];
     });
   } else if (lastAction.type === 'border') {
-    // No undo for borders yet (can be expanded if needed)
-  };
+    // No undo for borders yet
+  }
   sessionStorage.setItem('rows', JSON.stringify(rows));
   sessionStorage.setItem('headers', JSON.stringify(headers));
   generateForm();
@@ -441,7 +446,7 @@ function undoAction() {
   saveSession();
   showSnackbar('Action undone!');
   lastAction = null;
-};
+}
 
 // Offline Queue
 function queueAction(action) {
@@ -449,7 +454,7 @@ function queueAction(action) {
   const transaction = db.transaction(['offlineQueue'], 'readwrite');
   const store = transaction.objectStore('offlineQueue');
   store.add(action);
-};
+}
 
 async function syncOfflineQueue() {
   const transaction = db.transaction(['offlineQueue'], 'readwrite');
@@ -476,15 +481,15 @@ async function syncOfflineQueue() {
         });
       } else if (action.type === 'border') {
         // Handle border update if implemented
-      };
+      }
     });
     sessionStorage.setItem('rows', JSON.stringify(rows));
     sessionStorage.setItem('headers', JSON.stringify(headers));
     saveSession();
     store.clear();
     offlineQueue = [];
-  };
-};
+  }
+}
 
 // Update Progress
 let progressTimeout;
@@ -493,7 +498,7 @@ function updateProgress() {
   progressTimeout = setTimeout(() => {
     fileNameSpan.textContent = currentFileName ? `${currentFileName} (${rows.length} rows)` : '';
   }, 100);
-};
+}
 
 // Slide-Up Panels
 function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen) {
@@ -530,18 +535,17 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     } else {
       parent.appendChild(panel);
       console.warn(`No .container found in ${parent.id}, appending panel directly to ${parent.id}`);
-    };
+    }
     panel.querySelector('.close-panel-btn').onclick = () => {
       panel.classList.remove('show');
       if (parent === dataEntryScreen) {
         dataForm.style.display = 'block';
         addRowBtn.style.display = 'block';
         viewRowsBtn.style.display = 'block';
-        settingsBtn.style.display = 'block';
         bulkEditBtn.style.display = 'block';
         searchBtn.style.display = 'block';
         presetsBtn.style.display = 'block';
-      };
+      }
     };
     const dropdown = panel.querySelector('.action-dropdown');
     const borderSubOptions = panel.querySelector('.border-sub-options');
@@ -563,10 +567,10 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
               saveSession();
               renderRows(panel.querySelector('.panel-content'));
               showSnackbar('Row deleted!', 'undoAction()');
-            };
+            }
           } else {
             showSnackbar('Invalid row number.');
-          };
+          }
           e.target.value = '';
         } else if (action === 'addAfter') {
           const rowNum = prompt('Enter row number to add after (0 to ' + rows.length + '): 0 for start');
@@ -581,7 +585,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             showSnackbar('Row added after ' + rowNum + '!', 'undoAction()');
           } else {
             showSnackbar('Invalid row number.');
-          };
+          }
           e.target.value = '';
         } else if (action === 'addColumn') {
           const colNum = prompt('Enter column number to add after (0 to ' + headers.length + '): 0 for start');
@@ -591,7 +595,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             if (headers.includes(newHeader)) {
               showSnackbar('Column name already exists.');
               return;
-            };
+            }
             lastAction = { type: 'addColumn', index: colNum, newHeader };
             headers.splice(colNum, 0, newHeader);
             rows.forEach((row) => (row[newHeader] = ''));
@@ -603,7 +607,7 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
             showSnackbar('Column added!', 'undoAction()');
           } else {
             showSnackbar('Invalid column number or name.');
-          };
+          }
           e.target.value = '';
         } else if (action === 'deleteColumn') {
           const colNum = prompt('Enter column number to delete (1 to ' + headers.length + '):');
@@ -619,13 +623,13 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
               generateForm();
               renderRows(panel.querySelector('.panel-content'));
               showSnackbar('Column deleted!', 'undoAction()');
-            };
+            }
           } else {
             showSnackbar('Invalid column number.');
-          };
+          }
           e.target.value = '';
-        };
-      };
+        }
+      }
     };
     borderSubOptions.onchange = (e) => {
       const borderType = e.target.value;
@@ -646,14 +650,13 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
           dataForm.style.display = 'block';
           addRowBtn.style.display = 'block';
           viewRowsBtn.style.display = 'block';
-          settingsBtn.style.display = 'block';
           bulkEditBtn.style.display = 'block';
           searchBtn.style.display = 'block';
           presetsBtn.style.display = 'block';
-        };
-      };
+        }
+      }
     });
-  };
+  }
   const content = panel.querySelector('.panel-content');
   content.innerHTML = '';
   contentGenerator(content);
@@ -663,12 +666,11 @@ function createSlidePanel(id, title, contentGenerator, parent = dataEntryScreen)
     dataForm.style.display = 'none';
     addRowBtn.style.display = 'none';
     viewRowsBtn.style.display = 'none';
-    settingsBtn.style.display = 'none';
     bulkEditBtn.style.display = 'none';
     searchBtn.style.display = 'none';
     presetsBtn.style.display = 'none';
-  };
-};
+  }
+}
 
 // Apply Borders
 function applyBorder(borderType, container) {
@@ -684,11 +686,11 @@ function applyBorder(borderType, container) {
       cell.style.border = 'none';
       if (cell.parentElement.rowIndex === 0 || cell.cellIndex === 0 || cell.parentElement.rowIndex === table.rows.length - 1 || cell.cellIndex === table.rows[0].cells.length - 1) {
         cell.style.border = '1px solid var(--border)';
-      };
-    };
+      }
+    }
   });
   renderRows(container);
-};
+}
 
 // Create Template
 function createTemplatePanel() {
@@ -740,7 +742,7 @@ function createTemplatePanel() {
           inp.setAttribute('aria-label', `Header ${i + 1} input`);
         });
         if (inputs.length === 1) inputs[0].querySelector('.remove-header').style.display = 'none';
-      };
+      }
     });
 
     form.onsubmit = (e) => {
@@ -767,10 +769,10 @@ function createTemplatePanel() {
             errorDiv.textContent = 'Duplicate header';
             errorDiv.style.display = 'block';
             valid = false;
-          };
+          }
         });
         showSnackbar('Error: Duplicate headers detected.');
-      };
+      }
 
       if (valid) {
         headers = newHeaders;
@@ -788,10 +790,10 @@ function createTemplatePanel() {
         hideAllPanels();
         showSnackbar('Template created!');
         sessionStorage.setItem('currentPage', 'data-entry');
-      };
+      }
     };
   }, homeScreen);
-};
+}
 
 // Create CSV Panel
 function createCsvPanel() {
@@ -821,11 +823,11 @@ function createCsvPanel() {
         panel.classList.remove('show');
       } else {
         showSnackbar('Please enter CSV content.');
-      };
+      }
     };
     content.appendChild(saveBtn);
   }, homeScreen);
-};
+}
 
 // Your Works Panel
 function showYourWorksPanel() {
@@ -833,7 +835,7 @@ function showYourWorksPanel() {
     if (sessions.length === 0) {
       content.innerHTML = '<p>No sessions yet.</p>';
       return;
-    };
+    }
     sessions.forEach((session, index) => {
       const card = document.createElement('div');
       card.className = 'work-card';
@@ -848,7 +850,7 @@ function showYourWorksPanel() {
       content.appendChild(card);
     });
   }, homeScreen);
-};
+}
 
 function deleteSession(index) {
   if (confirm('Are you sure you want to delete ' + sessions[index].fileName + '? This action cannot be undone.')) {
@@ -859,8 +861,8 @@ function deleteSession(index) {
     store.delete(fileName);
     showYourWorksPanel();
     showSnackbar('Session deleted!');
-  };
-};
+  }
+}
 
 // Preset Functions
 function applyPreset(i) {
@@ -871,14 +873,14 @@ function applyPreset(i) {
   });
   hideAllPanels();
   showSnackbar('Preset applied!');
-};
+}
 
 function deletePreset(i) {
   presets.splice(i, 1);
   localStorage.setItem('presets', JSON.stringify(presets));
   showSnackbar('Preset deleted!');
   renderPresets();
-};
+}
 
 function renderPresets(container) {
   container.innerHTML = presets.length ? '' : '<p>No presets yet.</p>';
@@ -894,7 +896,7 @@ function renderPresets(container) {
     `;
     container.appendChild(div);
   });
-};
+}
 
 // Event Listeners
 startNewBtn.addEventListener('click', () => {
@@ -931,7 +933,7 @@ fileInput.addEventListener('change', async () => {
     saveSession();
     showSnackbar('File loaded and converted to Excel!');
     sessionStorage.setItem('currentPage', 'data-entry');
-  };
+  }
 });
 
 backBtn.addEventListener('click', () => {
@@ -955,7 +957,7 @@ addRowBtn.addEventListener('click', () => {
       errorDiv.textContent = `Invalid ${header}`;
       errorDiv.style.display = 'block';
       valid = false;
-    };
+    }
   });
   if (valid) {
     if (editingIndex !== null) {
@@ -970,21 +972,20 @@ addRowBtn.addEventListener('click', () => {
       lastAction = { type: 'add', row, index: rows.length };
       rows.push(row);
       showSnackbar('Row added!', 'undoAction()');
-      // Clear form fields after adding a new row
       headers.forEach((header) => {
         const input = dataForm.querySelector(`[name="${header}"]`);
         if (input) input.value = '';
       });
-    };
+    }
     sessionStorage.setItem('rows', JSON.stringify(rows));
     if (navigator.onLine) {
       saveSession();
     } else {
       queueAction(lastAction);
       showSnackbar('Action queued offline.');
-    };
+    }
     updateProgress();
-  };
+  }
 });
 
 downloadBtn.addEventListener('click', async () => {
@@ -998,11 +999,11 @@ downloadBtn.addEventListener('click', async () => {
       } else {
         const success = await downloadFile(rows, headers, fileName, format);
         if (success) showSnackbar('Downloaded!');
-      };
+      }
     } else {
       showSnackbar('Invalid file type. Use pdf, excel, csv, or txt.');
-    };
-  };
+    }
+  }
 });
 
 viewRowsBtn.addEventListener('click', () => {
@@ -1090,7 +1091,7 @@ bulkEditBtn.addEventListener('click', () => {
       if (!selectedRows.length) {
         showSnackbar('No rows selected.');
         return;
-      };
+      }
       const formData = new FormData(form);
       const changes = {};
       headers.forEach((h) => {
@@ -1144,24 +1145,6 @@ settingsBtn.addEventListener('click', () => {
     };
     validationForm.appendChild(saveRulesBtn);
 
-    const themeForm = document.createElement('form');
-    themeForm.innerHTML = `
-      <label for="theme">Theme</label>
-      <select id="theme" name="theme">
-        <option value="light" ${theme === 'light' ? 'selected' : ''}>Light ☀️</option>
-        <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark 🌙</option>
-      </select>
-    `;
-    const saveThemeBtn = document.createElement('button');
-    saveThemeBtn.className = 'btn btn-primary btn-full';
-    saveThemeBtn.textContent = 'Save Theme ✅';
-    saveThemeBtn.onclick = (e) => {
-      e.preventDefault();
-      updateTheme(themeForm.querySelector('#theme').value);
-      showSnackbar('Theme updated!');
-    };
-    themeForm.appendChild(saveThemeBtn);
-
     const importInput = document.createElement('input');
     importInput.type = 'file';
     importInput.accept = '.xlsx,.csv';
@@ -1173,8 +1156,8 @@ settingsBtn.addEventListener('click', () => {
           saveSession();
           showSnackbar('Rows imported!');
           importInput.value = '';
-        };
-      };
+        }
+      }
     };
     const importBtn = document.createElement('button');
     importBtn.className = 'btn btn-primary btn-full';
@@ -1182,20 +1165,25 @@ settingsBtn.addEventListener('click', () => {
     importBtn.onclick = () => importInput.click();
 
     content.appendChild(validationForm);
-    content.appendChild(themeForm);
     content.appendChild(importBtn);
     content.appendChild(importInput);
-  });
-  sessionStorage.setItem('currentPage', 'data-entry');
+  }, homeScreen); // Attach to home screen
+  sessionStorage.setItem('currentPage', 'home');
+});
+
+themeToggleBtn.addEventListener('click', () => {
+  const newTheme = theme === 'dark' ? 'light' : 'dark';
+  updateTheme(newTheme);
+  showSnackbar(`Switched to ${newTheme} mode!`);
 });
 
 function positiveRule(value) {
   return !isNaN(value) && Number(value) > 0;
-};
+}
 
 function notFutureRule(value) {
   return new Date(value) <= new Date();
-};
+}
 
 // Initialize
 try {
@@ -1208,18 +1196,22 @@ try {
   } else {
     homeScreen.style.display = 'block';
     dataEntryScreen.style.display = 'none';
-  };
+  }
+  // Initialize theme toggle button icon
+  if (themeToggleBtn) {
+    themeToggleBtn.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
+  }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch((err) => console.error('Service Worker Error:', err));
-  };
+  }
 } catch (error) {
   console.error('Initialization Error:', error);
-};
+}
 
 // Missing Functions
 function hideAllPanels() {
   document.querySelectorAll('.slide-panel').forEach((panel) => panel.classList.remove('show'));
-};
+}
 
 function resumeSession(index) {
   const session = sessions[index];
@@ -1240,5 +1232,5 @@ function resumeSession(index) {
     sessionStorage.setItem('currentPage', 'data-entry');
   } else {
     showSnackbar('Session not found.');
-  };
-};
+  }
+}

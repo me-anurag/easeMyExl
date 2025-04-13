@@ -6,7 +6,7 @@
   <title>Excel Data Entry</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Added Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.13/jspdf.plugin.autotable.min.js"></script>
@@ -15,13 +15,15 @@
   <div id="home-screen">
     <div class="container">
       <div class="welcome-card">
-        <h1>Welcome to easeMyExcle app 📊</h1>
+        <h1>Welcome to easeMyExcel app 📊</h1>
         <p>Easily manage your data with a simple and powerful interface. Upload Excel/CSV files, create templates, and more!</p>
         <div class="button-container">
           <button id="start-new" class="btn btn-primary" aria-label="Start new data entry"><i class="fas fa-upload"></i> Start New</button>
           <button id="create-template" class="btn btn-primary" aria-label="Create new template"><i class="fas fa-file-alt"></i> Create Template</button>
           <button id="create-csv" class="btn btn-primary" aria-label="Create new CSV"><i class="fas fa-table"></i> Create CSV</button>
           <button id="your-works-btn" class="btn btn-primary" aria-label="View your works"><i class="fas fa-folder"></i> Your Works</button>
+          <button id="settings-btn" class="btn btn-primary" aria-label="Configure settings"><i class="fas fa-cog"></i> Settings</button>
+          <button id="theme-toggle-btn" class="btn btn-primary" aria-label="Toggle theme"><i class="fas fa-moon"></i> Dark Mode</button>
         </div>
       </div>
     </div>
@@ -39,7 +41,6 @@
       <div id="row-table" style="display: none;"></div>
       <button id="add-row" class="btn btn-primary btn-full add-row-sticky" aria-label="Add or update row">Add Row ➕</button>
       <button id="view-rows-btn" class="btn btn-primary btn-full" aria-label="View all rows">View Rows 👀</button>
-      <button id="settings-btn" class="btn btn-primary btn-full" aria-label="Configure settings">Settings ⚙️</button>
       <button id="bulk-edit-btn" class="btn btn-primary btn-full" aria-label="Bulk edit rows">Bulk Edit ✏️</button>
       <button id="search-btn" class="btn btn-primary btn-full" aria-label="Search rows">Search 🔍</button>
       <button id="presets-btn" class="btn btn-primary btn-full" aria-label="Manage row presets">Presets ⭐</button>
@@ -50,5 +51,6 @@
   <script src="app.js" defer></script>
   <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f7762fbcb50617',t:'MTc0NDUxMDU4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
   <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f8b8549e89bffe',t:'MTc0NDUyMzc4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92f91f6e1d27bfc9',t:'MTc0NDUyODAwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
